@@ -1,0 +1,33 @@
+#include<stdio.h>
+#include<stdlib.h>
+int main(){
+    int i,j;
+    int x=0;
+    int y=5;
+
+    int velocity_x=1;
+    int velcoity_y=1;
+    int left=0;
+    int right=20;
+    int top=0;
+    bottom=10;
+
+    while(i)
+    {
+        x=x+velcoity_x;
+        y=y+velcoity_y;
+
+        system("cls");
+        //输出小球前的空行
+        for(j=0;j<y;j++)
+        printf(" ");
+        printf("o");
+        printf("\n");
+
+        if((x==top)||(x==bottom))
+        velocity_x=-velocity_x;
+        if((y==left)||(y==right))
+        velocity_y=-velocity_y;
+    }
+    return 0;
+}
