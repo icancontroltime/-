@@ -1,0 +1,26 @@
+#include<stdio.h>
+#include<stdlib.h>
+int main(){
+    int i,j;
+    int x=5;
+    int y=10;
+
+    int height=20;
+    int velocity=1;
+    while(1)
+    {
+        x=x+x+velcoity;
+        system("cls");
+
+        //输出小球前的空行
+        for(i=1;i<x;i++)
+        printf("");
+        printf("\n");
+
+        if(x==height)
+        velocity=-velocity;
+        if(x==0)
+        velocity=-velocity;
+    }
+    return 0;
+}
