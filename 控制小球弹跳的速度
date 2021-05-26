@@ -1,0 +1,4 @@
+#include<windows.h>
+printf("o");
+printf("\n");
+Sleep(50);
