@@ -1,0 +1,1958 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include<graphics.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<conio.h>
+#include<windows.h>
+//分辨率更改会显示错误
+//设置游戏开始页面显示
+#define width 1000//游戏界面宽度
+#define high 730//游戏界面高度
+#pragma comment (lib, "winmm.lib")
+
+int die();//死亡处理
+void end();//结束处理
+void openfile(const char a[]);//读档
+void musicclose(const char f[]);//音乐关闭
+void musicopen(const char f[]);//音乐开启
+void getimage();//读取图像--图像太多了。。。。
+void getpart(int z);//读取关卡信息
+void putfile(const char a[]);//存档
+void showhelp();//游戏帮助界面显示
+void showgame();//游戏内部界面显示
+int showpause();//游戏暂停界面显示(返回值用于判断游戏状态  参数用于显示间隔)
+void showselecta();//游戏选择单双人模式界面
+void showselectb();//游戏选择关卡界面
+void showstart();//游戏开始界面
+void showsnow();//飘动的雪花背景
+int showwin();//关卡胜利处理
+void startup();//游戏初始化
+void update();//游戏进行更新
+void updateuser();//用户输入处理
+
+IMAGE img_pause_1, img_pause_2, img_music_1, img_music_2, img_sound_1, img_sound_2;//游戏右上角修改设置图像-暂停-音乐-音效
+IMAGE img_bk_game, img_background, img_bksnow;//背景类图像
+IMAGE img_bush[6], img_tree[6], img_snow[6], img_stair[6];//灌木丛图像-树木图像-得分雪花图像-楼梯图像
+IMAGE img_score_1, img_score_2;//总得分板图像
+IMAGE img_score_1_1, img_score_1_2, img_score_2_1, img_score_2_2;//玩家得分板图像
+IMAGE img_brick_1, img_brick_2, img_brick_3;//3种未被冰雪覆盖的砖块图像
+IMAGE img_brick_s_1_1, img_brick_s_1_2, img_brick_s_2_1, img_brick_s_2_2;//被冰雪覆盖的砖块的图像(分玩家一和玩家二)
+IMAGE img_iron;//铁块图像
+IMAGE img_monster_1[12];//怪物一相关图像-左一_左二_右一_右二_冻左_冻右
+IMAGE img_monster_2[12];//怪物二相关图像-左一_左二_右一_右二_冻左_冻右
+IMAGE img_pause_1_i, img_pause_2_i, img_pause_1_m, img_pause_2_m;//暂停界面图像
+IMAGE img_logo_1, img_logo_2, img_start_1, img_start_2, img_help_1, img_help_2;//开始界面相关图像-logo-开始游戏-帮助
+IMAGE img_begin_1, img_begin_2;//选择人物界面相关图像
+IMAGE img_checkpoint_1_1, img_checkpoint_1_2, img_checkpoint_2_1, img_checkpoint_2_2;//选择人物界面相关图像
+IMAGE img_p_1[8], img_jump_1[8];//人物一静止相关图像-左一_左二_右一_右二  跳跃相关
+IMAGE img_p_2[8], img_jump_2[8];//人物二静止相关图像-左一_左二_右一_右二  跳跃相关
+IMAGE img_p_1_w[16], img_p_2_w[16];//人物动作相关图像-左123-右123-减速左右
+IMAGE img_p_1_u[6], img_p_2_u[6];//人物上梯子相关
+IMAGE img_back;//用于帮助页面的返回图像
+short int x = 0, mode = 0, checkpoint;//i-飘雪动画用全局变量  mode-游戏模式(单人/双人)  checkpoint-当前关卡数
+short int m, n;//用于保存关卡尺寸信息
+short int score[3], all;//得分信息  all用于保存总目标
+short int count;//记录间隔
+short int brick[500][3] = { 0 };//保存关卡砖块信息-位置x-位置y-砖块类型
+short int iron[100][3] = { 0 };//保存关卡铁块信息-位置x-位置y-是否存在
+short int tree_bush[100][3] = { 0 };//保存关卡装饰信息-位置x-位置y-装饰类型
+short int stair[100][3] = { 0 };//保存关卡梯子信息-位置x-位置y-状态
+short int snow_score[50][3] = { 0 };//保存关卡雪花信息-位置x-位置y-状态
+short int monster[50][5] = { 0 };//保存关卡怪物信息-位置x-位置y-怪物类型-怪物状态-速度
+short int p_stair[2];//记录玩家所在梯子位置信息  用于判断是否横向超出梯子范围
+short int music[2];//记录音乐的开关-音乐-音效
+double v[2];//人物移动速度
+double p_P[2][5] = { 0 };//保存玩家操纵人物信息-位置x-位置y-玩家生命状态-玩家是否在跳跃或爬梯子状态-下落速度
+char file[41], part[100][100];//保存档案-关卡信息
+short int screen = 0;//用于判断显示界面 0-开始游戏 1-选择模式 2-选择关卡 3-游戏界面
+
+int main()
+{
+	getimage();
+	startup();
+	while (1) {
+		switch (screen) {
+		case 0:showstart(); break;
+		case 1:showselecta(); break;
+		case 2:showselectb(); break;
+		case 3:showgame(); break;
+		}
+	}
+	closegraph();
+	end();
+	return 0;
+}
+
+int die()
+{
+	while (1) {//简陋的失败界面
+		settextcolor(LIGHTCYAN);
+		settextstyle(n * 10, 0, _T("黑体"));
+		outtextxy(n * 22 - n * 15 / 2, m * 22 - n * 5, _T("DIE"));
+		settextstyle(n, 0, _T("黑体"));
+		outtextxy(n * 22 - n * 15 / 2, m * 22 + n * 5, _T("please click win to play again"));
+		FlushBatchDraw();
+		if (MouseHit()) {
+			MOUSEMSG hit = GetMouseMsg();
+			if (hit.uMsg == WM_LBUTTONDOWN)
+				if (hit.x >= n * 22 - n * 15 / 2 && hit.x <= m * 22 + n * 15 && hit.y >= m * 22 - n * 5 && hit.y <= m * 22 + n * 5)//重玩
+					return 1;
+		}
+	}
+}
+
+void end()
+{
+	EndBatchDraw();
+	closegraph();
+}
+
+void openfile(const char a[])
+{
+	FILE* f;
+	f = fopen(a, "r");
+	if (f == NULL)
+		exit(0);
+	fgets(file, 41, f);//读取档案
+	fclose(f);
+}
+
+void musicclose(const char f[])
+{
+	char a[1000] = "open \"../sound\\";
+	char b[1000] = "close ";
+	strcat_s(a, f);
+	strcat_s(a, ".mp3\" alias ");
+	strcat_s(a, f);
+	strcat_s(a, "music");
+	strcat_s(b, f);
+	strcat_s(b, "music");
+	mciSendString(a, NULL, 0, NULL); //打开音乐文件
+	mciSendString(b, NULL, 0, NULL); //前面一次的音乐关闭
+}
+
+void musicopen(const char f[])
+{
+	char a[1000] = "open \"../sound\\";
+	char b[1000] = "play ";
+	strcat_s(a, f);
+	strcat_s(a, ".mp3\" alias ");
+	strcat_s(a, f);
+	strcat_s(a, "music");
+	strcat_s(b, f);
+	strcat_s(b, "music");
+	mciSendString(a, NULL, 0, NULL); //打开音乐文件
+	mciSendString(b, NULL, 0, NULL); //播放
+}
+
+void getimage()
+{
+	loadimage(&img_pause_1_i, _T("../photo\\pause_1.png"));//暂停界面
+	loadimage(&img_pause_2_i, _T("../photo\\pause_1_mask.png"));
+	loadimage(&img_pause_1_m, _T("../photo\\pause_2.png"));
+	loadimage(&img_pause_2_m, _T("../photo\\pause_2_mask.png"));
+	loadimage(&img_background, _T("../photo\\background.bmp"));//游戏开始界面背景
+	loadimage(&img_bk_game, _T("../photo\\bk_game.png"));//游戏内背景
+	loadimage(&img_bksnow, _T("../photo\\bksnow.png"));//游戏开始界面背景雪花装饰
+	loadimage(&img_back, _T("../photo\\back.png"));//帮助界面返回图像
+	loadimage(&img_logo_1, _T("../photo\\logo.png"));//logo
+	loadimage(&img_logo_2, _T("../photo\\logo_mask.png"));
+	loadimage(&img_start_1, _T("../photo\\start_game.png"));//游戏开始图像
+	loadimage(&img_start_2, _T("../photo\\start_game_mask.png"));
+	loadimage(&img_help_1, _T("../photo\\help.png"));//帮助
+	loadimage(&img_help_2, _T("../photo\\help_mask.png"));
+	loadimage(&img_pause_1, _T("../photo\\pause.png"));//暂停标识
+	loadimage(&img_pause_2, _T("../photo\\pause_mask.png"));
+	loadimage(&img_music_1, _T("../photo\\music.png"));//音乐开关标识
+	loadimage(&img_music_2, _T("../photo\\music_mask.png"));
+	loadimage(&img_sound_1, _T("../photo\\sound.png"));//音效开关标识
+	loadimage(&img_sound_2, _T("../photo\\sound_mask.png"));
+	loadimage(&img_score_1, _T("../photo\\score.png"));//总得分板
+	loadimage(&img_score_2, _T("../photo\\score_mask.png"));
+	loadimage(&img_score_1_1, _T("../photo\\score_1.png"));//玩家一得分板
+	loadimage(&img_score_1_2, _T("../photo\\score_1_mask.png"));
+	loadimage(&img_score_2_1, _T("../photo\\score_2.png"));//玩家二得分板
+	loadimage(&img_score_2_2, _T("../photo\\score_2_mask.png"));
+	loadimage(&img_begin_1, _T("../photo\\begin_1.png"));//人物选择图像
+	loadimage(&img_begin_2, _T("../photo\\begin_2.png"));
+	loadimage(&img_checkpoint_1_1, _T("../photo\\checkpoint_1_1.png"));//单人-关卡选择
+	loadimage(&img_checkpoint_1_2, _T("../photo\\checkpoint_1_2.png"));
+	loadimage(&img_checkpoint_2_1, _T("../photo\\checkpoint_2_1.png"));//双人-关卡选择
+	loadimage(&img_checkpoint_2_2, _T("../photo\\checkpoint_2_2.png"));
+	loadimage(&img_brick_1, _T("../photo\\brick_1.png"));//砖块一
+	loadimage(&img_brick_2, _T("../photo\\brick_2.png"));//砖块二
+	loadimage(&img_brick_3, _T("../photo\\brick_3.png"));//砖块三
+	loadimage(&img_iron, _T("../photo\\iron.png"));//铁块
+	loadimage(&img_brick_s_1_1, _T("../photo\\brick_4.png"));//砖块四(冻住-玩家一)
+	loadimage(&img_brick_s_1_2, _T("../photo\\brick_4_mask.png"));
+	loadimage(&img_brick_s_2_1, _T("../photo\\brick_5.png"));//砖块五(冻住-玩家二)
+	loadimage(&img_brick_s_2_2, _T("../photo\\brick_5_mask.png"));
+	loadimage(&img_stair[0], _T("../photo\\stair_1.png"));//未被冻住的梯子
+	loadimage(&img_stair[1], _T("../photo\\stair_1_mask.png"));
+	loadimage(&img_stair[2], _T("../photo\\stair_2.png"));//冻住的梯子一
+	loadimage(&img_stair[3], _T("../photo\\stair_2_mask.png"));
+	loadimage(&img_stair[4], _T("../photo\\stair_3.png"));//冻住的梯子二
+	loadimage(&img_stair[5], _T("../photo\\stair_3_mask.png"));
+	loadimage(&img_snow[0], _T("../photo\\snow_1.png"));//得分雪花图像
+	loadimage(&img_snow[1], _T("../photo\\snow_1_mask.png"));
+	loadimage(&img_snow[2], _T("../photo\\snow_2.png"));
+	loadimage(&img_snow[3], _T("../photo\\snow_2_mask.png"));
+	loadimage(&img_snow[4], _T("../photo\\snow_3.png"));
+	loadimage(&img_snow[5], _T("../photo\\snow_3_mask.png"));
+	loadimage(&img_tree[0], _T("../photo\\tree_1.png"));//树木图像
+	loadimage(&img_tree[1], _T("../photo\\tree_1_mask.png"));
+	loadimage(&img_tree[2], _T("../photo\\tree_2.png"));
+	loadimage(&img_tree[3], _T("../photo\\tree_2_mask.png"));
+	loadimage(&img_tree[4], _T("../photo\\tree_3.png"));
+	loadimage(&img_tree[5], _T("../photo\\tree_3_mask.png"));
+	loadimage(&img_bush[0], _T("../photo\\bush_1.png"));//灌木丛图像
+	loadimage(&img_bush[1], _T("../photo\\bush_1_mask.png"));
+	loadimage(&img_bush[2], _T("../photo\\bush_2.png"));
+	loadimage(&img_bush[3], _T("../photo\\bush_2_mask.png"));
+	loadimage(&img_bush[4], _T("../photo\\bush_3.png"));
+	loadimage(&img_bush[5], _T("../photo\\bush_3_mask.png"));
+	//玩家一动作相关
+	loadimage(&img_jump_1[0], _T("../photo\\player\\1\\p_1_jump_l_1.png"));//玩家一上左
+	loadimage(&img_jump_1[1], _T("../photo\\player\\1\\p_1_jump_l_1_mask.png"));
+	loadimage(&img_jump_1[2], _T("../photo\\player\\1\\p_1_jump_l_2.png"));//玩家一下左
+	loadimage(&img_jump_1[3], _T("../photo\\player\\1\\p_1_jump_l_2_mask.png"));
+	loadimage(&img_jump_1[4], _T("../photo\\player\\1\\p_1_jump_r_1.png"));//玩家一上右
+	loadimage(&img_jump_1[5], _T("../photo\\player\\1\\p_1_jump_r_1_mask.png"));
+	loadimage(&img_jump_1[6], _T("../photo\\player\\1\\p_1_jump_r_2.png"));//玩家一下右
+	loadimage(&img_jump_1[7], _T("../photo\\player\\1\\p_1_jump_r_2_mask.png"));
+	loadimage(&img_p_1[0], _T("../photo\\player\\1\\p_1_l_1.png"));//玩家一左一
+	loadimage(&img_p_1[1], _T("../photo\\player\\1\\p_1_l_1_mask.png"));
+	loadimage(&img_p_1[2], _T("../photo\\player\\1\\p_1_l_2.png"));//玩家一左二
+	loadimage(&img_p_1[3], _T("../photo\\player\\1\\p_1_l_2_mask.png"));
+	loadimage(&img_p_1[4], _T("../photo\\player\\1\\p_1_r_1.png"));//玩家一右一
+	loadimage(&img_p_1[5], _T("../photo\\player\\1\\p_1_r_1_mask.png"));
+	loadimage(&img_p_1[6], _T("../photo\\player\\1\\p_1_r_2.png"));//玩家一右二
+	loadimage(&img_p_1[7], _T("../photo\\player\\1\\p_1_r_2_mask.png"));
+	loadimage(&img_p_1_w[0], _T("../photo\\player\\1\\p_1_walk_l_1.png"));//玩家一左一
+	loadimage(&img_p_1_w[1], _T("../photo\\player\\1\\p_1_walk_l_1_mask.png"));
+	loadimage(&img_p_1_w[2], _T("../photo\\player\\1\\p_1_walk_l_2.png"));//玩家一左二
+	loadimage(&img_p_1_w[3], _T("../photo\\player\\1\\p_1_walk_l_2_mask.png"));
+	loadimage(&img_p_1_w[4], _T("../photo\\player\\1\\p_1_walk_l_3.png"));//玩家一左三
+	loadimage(&img_p_1_w[5], _T("../photo\\player\\1\\p_1_walk_l_3_mask.png"));
+	loadimage(&img_p_1_w[6], _T("../photo\\player\\1\\p_1_walk_r_1.png"));//玩家一右一
+	loadimage(&img_p_1_w[7], _T("../photo\\player\\1\\p_1_walk_r_1_mask.png"));
+	loadimage(&img_p_1_w[8], _T("../photo\\player\\1\\p_1_walk_r_2.png"));//玩家一右二
+	loadimage(&img_p_1_w[9], _T("../photo\\player\\1\\p_1_walk_r_2_mask.png"));
+	loadimage(&img_p_1_w[10], _T("../photo\\player\\1\\p_1_walk_r_3.png"));//玩家一右三
+	loadimage(&img_p_1_w[11], _T("../photo\\player\\1\\p_1_walk_r_3_mask.png"));
+	loadimage(&img_p_1_w[12], _T("../photo\\player\\1\\p_1_slow_l.png"));//玩家一左一
+	loadimage(&img_p_1_w[13], _T("../photo\\player\\1\\p_1_slow_l_mask.png"));
+	loadimage(&img_p_1_w[14], _T("../photo\\player\\1\\p_1_slow_r.png"));//玩家一右一
+	loadimage(&img_p_1_w[15], _T("../photo\\player\\1\\p_1_slow_r_mask.png"));
+	loadimage(&img_p_1_u[0], _T("../photo\\player\\1\\p_1_up_1.png"));//玩家一一
+	loadimage(&img_p_1_u[1], _T("../photo\\player\\1\\p_1_up_1_mask.png"));
+	loadimage(&img_p_1_u[2], _T("../photo\\player\\1\\p_1_up_2.png"));//玩家一二
+	loadimage(&img_p_1_u[3], _T("../photo\\player\\1\\p_1_up_2_mask.png"));
+	loadimage(&img_p_1_u[4], _T("../photo\\player\\1\\p_1_up_3.png"));//玩家一三
+	loadimage(&img_p_1_u[5], _T("../photo\\player\\1\\p_1_up_3_mask.png"));
+	//玩家二动作相关
+	loadimage(&img_jump_2[0], _T("../photo\\player\\2\\p_2_jump_l_1.png"));//玩家二上左
+	loadimage(&img_jump_2[1], _T("../photo\\player\\2\\p_2_jump_l_1_mask.png"));
+	loadimage(&img_jump_2[2], _T("../photo\\player\\2\\p_2_jump_l_2.png"));//玩家二下左
+	loadimage(&img_jump_2[3], _T("../photo\\player\\2\\p_2_jump_l_2_mask.png"));
+	loadimage(&img_jump_2[4], _T("../photo\\player\\2\\p_2_jump_r_1.png"));//玩家二上右
+	loadimage(&img_jump_2[5], _T("../photo\\player\\2\\p_2_jump_r_1_mask.png"));
+	loadimage(&img_jump_2[6], _T("../photo\\player\\2\\p_2_jump_r_2.png"));//玩家二下右
+	loadimage(&img_jump_2[7], _T("../photo\\player\\2\\p_2_jump_r_2_mask.png"));
+	loadimage(&img_p_2[0], _T("../photo\\player\\2\\p_2_l_1.png"));//玩家二左一
+	loadimage(&img_p_2[1], _T("../photo\\player\\2\\p_2_l_1_mask.png"));
+	loadimage(&img_p_2[2], _T("../photo\\player\\2\\p_2_l_2.png"));//玩家二左二
+	loadimage(&img_p_2[3], _T("../photo\\player\\2\\p_2_l_2_mask.png"));
+	loadimage(&img_p_2[4], _T("../photo\\player\\2\\p_2_r_1.png"));//玩家二右一
+	loadimage(&img_p_2[5], _T("../photo\\player\\2\\p_2_r_1_mask.png"));
+	loadimage(&img_p_2[6], _T("../photo\\player\\2\\p_2_r_2.png"));//玩家二右二
+	loadimage(&img_p_2[7], _T("../photo\\player\\2\\p_2_r_2_mask.png"));
+	loadimage(&img_p_2_w[0], _T("../photo\\player\\2\\p_2_walk_l_1.png"));//玩家二左一
+	loadimage(&img_p_2_w[1], _T("../photo\\player\\2\\p_2_walk_l_1_mask.png"));
+	loadimage(&img_p_2_w[2], _T("../photo\\player\\2\\p_2_walk_l_2.png"));//玩家二左二
+	loadimage(&img_p_2_w[3], _T("../photo\\player\\2\\p_2_walk_l_2_mask.png"));
+	loadimage(&img_p_2_w[4], _T("../photo\\player\\2\\p_2_walk_l_3.png"));//玩家二左三
+	loadimage(&img_p_2_w[5], _T("../photo\\player\\2\\p_2_walk_l_3_mask.png"));
+	loadimage(&img_p_2_w[6], _T("../photo\\player\\2\\p_2_walk_r_1.png"));//玩家二右一
+	loadimage(&img_p_2_w[7], _T("../photo\\player\\2\\p_2_walk_r_1_mask.png"));
+	loadimage(&img_p_2_w[8], _T("../photo\\player\\2\\p_2_walk_r_2.png"));//玩家二右二
+	loadimage(&img_p_2_w[9], _T("../photo\\player\\2\\p_2_walk_r_2_mask.png"));
+	loadimage(&img_p_2_w[10], _T("../photo\\player\\2\\p_2_walk_r_3.png"));//玩家二右三
+	loadimage(&img_p_2_w[11], _T("../photo\\player\\2\\p_2_walk_r_3_mask.png"));
+	loadimage(&img_p_2_w[12], _T("../photo\\player\\2\\p_2_slow_l.png"));//玩家二左一
+	loadimage(&img_p_2_w[13], _T("../photo\\player\\2\\p_2_slow_l_mask.png"));
+	loadimage(&img_p_2_w[14], _T("../photo\\player\\2\\p_2_slow_r.png"));//玩家二右一
+	loadimage(&img_p_2_w[15], _T("../photo\\player\\2\\p_2_slow_r_mask.png"));
+	loadimage(&img_p_2_u[0], _T("../photo\\player\\2\\p_2_up_1.png"));//玩家二一
+	loadimage(&img_p_2_u[1], _T("../photo\\player\\2\\p_2_up_1_mask.png"));
+	loadimage(&img_p_2_u[2], _T("../photo\\player\\2\\p_2_up_2.png"));//玩家二二
+	loadimage(&img_p_2_u[3], _T("../photo\\player\\2\\p_2_up_2_mask.png"));
+	loadimage(&img_p_2_u[4], _T("../photo\\player\\2\\p_2_up_3.png"));//玩家二三
+	loadimage(&img_p_2_u[5], _T("../photo\\player\\2\\p_2_up_3_mask.png"));
+	//怪物一相关
+	loadimage(&img_monster_1[0], _T("../photo\\monster\\1\\monster_1_l_1.png"));//怪物一左一
+	loadimage(&img_monster_1[1], _T("../photo\\monster\\1\\monster_1_l_1_mask.png"));
+	loadimage(&img_monster_1[2], _T("../photo\\monster\\1\\monster_1_l_2.png"));//怪物一左二
+	loadimage(&img_monster_1[3], _T("../photo\\monster\\1\\monster_1_l_2_mask.png"));
+	loadimage(&img_monster_1[4], _T("../photo\\monster\\1\\monster_1_r_1.png"));//怪物一右一
+	loadimage(&img_monster_1[5], _T("../photo\\monster\\1\\monster_1_r_1_mask.png"));
+	loadimage(&img_monster_1[6], _T("../photo\\monster\\1\\monster_1_r_2.png"));//怪物一右二
+	loadimage(&img_monster_1[7], _T("../photo\\monster\\1\\monster_1_r_2_mask.png"));
+	loadimage(&img_monster_1[8], _T("../photo\\monster\\1\\monster_1_l_snow.png"));//怪物一冻左
+	loadimage(&img_monster_1[9], _T("../photo\\monster\\1\\monster_1_l_snow_mask.png"));
+	loadimage(&img_monster_1[10], _T("../photo\\monster\\1\\monster_1_r_snow.png"));//怪物一冻右
+	loadimage(&img_monster_1[11], _T("../photo\\monster\\1\\monster_1_r_snow_mask.png"));
+	//怪物二相关
+	loadimage(&img_monster_2[0], _T("../photo\\monster\\2\\monster_2_l_1.png"));//怪物二左一
+	loadimage(&img_monster_2[1], _T("../photo\\monster\\2\\monster_2_l_1_mask.png"));
+	loadimage(&img_monster_2[2], _T("../photo\\monster\\2\\monster_2_l_2.png"));//怪物二左二
+	loadimage(&img_monster_2[3], _T("../photo\\monster\\2\\monster_2_l_2_mask.png"));
+	loadimage(&img_monster_2[4], _T("../photo\\monster\\2\\monster_2_r_1.png"));//怪物二右一
+	loadimage(&img_monster_2[5], _T("../photo\\monster\\2\\monster_2_r_1_mask.png"));
+	loadimage(&img_monster_2[6], _T("../photo\\monster\\2\\monster_2_r_2.png"));//怪物二右二
+	loadimage(&img_monster_2[7], _T("../photo\\monster\\2\\monster_2_r_2_mask.png"));
+	loadimage(&img_monster_2[8], _T("../photo\\monster\\2\\monster_2_l_snow.png"));//怪物二冻左
+	loadimage(&img_monster_2[9], _T("../photo\\monster\\2\\monster_2_l_snow_mask.png"));
+	loadimage(&img_monster_2[10], _T("../photo\\monster\\2\\monster_2_r_snow.png"));//怪物二冻右
+	loadimage(&img_monster_2[11], _T("../photo\\monster\\2\\monster_2_r_snow_mask.png"));
+}
+
+void getpart(int z)
+{
+	FILE* p;
+	int i, j;
+	char a[30] = "../part\\part ";
+	char b[3] = { '\0' };
+	//获取关卡信息的路径
+	if (z < 10) {
+		b[0] = (char)(z + '0');
+		strcat(a, b);
+		strcat(a, ".txt");
+	}
+	else {
+		b[0] = (char)(z / 10 + '0');
+		b[1] = (char)(z % 10 + '0');
+		strcat(a, b);
+		strcat(a, ".txt");
+	}
+	p = fopen(a, "r");
+	if (p == NULL)
+		exit(0);
+	//读取关卡尺寸
+	if (fscanf(p, "%hd%hd\n", &m, &n) == 0)//如果未读取成功  退出的程序
+		exit(0);
+	for (i = 0; i <= m; i++) {
+		fgets(part[i], n + 2, p);//读取关卡信息
+	}
+	fclose(p);
+	//读取玩家初始位置和其他信息
+	int x_1, x_2, x_3, x_4, x_5, x_a;
+	x_1 = x_2 = x_3 = x_4 = x_5 = x_a = 0;
+	all = 0;
+	for (i = 0; i < 500; i++) {
+		brick[i][0] = 0;
+		brick[i][1] = 0;
+		brick[i][2] = 0;
+		if (i < 100) {
+			iron[i][0] = 0;
+			iron[i][1] = 0;
+			iron[i][2] = 0;
+			tree_bush[i][0] = 0;
+			tree_bush[i][1] = 0;
+			tree_bush[i][2] = 0;
+			stair[i][0] = 0;
+			stair[i][1] = 0;
+			stair[i][2] = 0;
+		}
+		if (i < 50) {
+			snow_score[i][0] = 0;
+			snow_score[i][1] = 0;
+			snow_score[i][2] = 0;
+			monster[i][0] = 0;
+			monster[i][1] = 0;
+			monster[i][2] = 0;
+			monster[i][3] = 0;
+			monster[i][4] = 0;
+		}
+	}
+	for (i = 0; i <= m; i++) {
+		for (j = 0; j <= n; j++) {
+			if (part[i][j] == 'p') {
+				p_P[0][0] = (double)i * 42 - 31;
+				p_P[0][1] = (double)j * 44 - 43;
+				p_P[0][2] = 3;//初始化玩家一生命为3
+				p_P[0][3] = 0;//未处于跳跃状态
+				p_P[0][4] = 40;
+			}
+			else if (part[i][j] == 'P' && mode == 2) {
+				p_P[1][0] = (double)i * 42 - 31;
+				p_P[1][1] = (double)j * 44 - 43;
+				p_P[1][2] = 3;//初始化玩家二生命为3
+				p_P[1][3] = 0;//未处于跳跃状态
+				p_P[1][4] = 40;
+			}
+			else if (part[i][j] == '1') {
+				brick[x_1][0] = i * 42;
+				brick[x_1][1] = j * 44;
+				brick[x_1++][2] = rand() % 3 + 1;//砖块状态-颜色随机
+				all++;
+			}
+			else if (part[i][j] == '2') {
+				stair[x_2][0] = i * 42;
+				stair[x_2][1] = j * 44;
+				stair[x_2++][2] = 1;//1-未冻住的梯子  2-冻住的梯子一  3-冻住的梯子二
+				all++;
+			}
+			else if (part[i][j] == '3') {
+				snow_score[x_3][0] = i * 42 - 4;
+				snow_score[x_3][1] = j * 44 - 3;
+				snow_score[x_3++][2] = 2;//1-雪花不存在  2-雪花存在
+			}
+			else if (part[i][j] == '4') {
+				tree_bush[x_4][0] = i * 42 + 2;
+				tree_bush[x_4][1] = j * 44 - 10;
+				tree_bush[x_4++][2] = 1;//1-未冻住的灌木丛  2-冻住的灌木丛一  3-冻住的灌木丛二
+			}
+			else if (part[i][j] == '5') {
+				tree_bush[x_4][0] = i * 42 - 105;
+				tree_bush[x_4][1] = j * 44 - 46;
+				tree_bush[x_4++][2] = 4;//4-未冻住的树木  5-冻住的树木一  6-冻住的树木二
+			}
+			else if (part[i][j] == '6') {
+				iron[x_5][0] = i * 42;
+				iron[x_5][1] = j * 44;
+				iron[x_5++][2] = 1;//1-存在
+			}
+			else if (part[i][j] == 'a') {
+				monster[x_a][0] = i * 42;
+				monster[x_a][1] = j * 44;
+				monster[x_a][2] = 1;//怪物一
+				monster[x_a][3] = 1;//1-未冻住  2-冻住
+				monster[x_a++][4] = (rand() % 2 == 1 ? 1 : -1);//速度初始化
+			}
+			else if (part[i][j] == 'b') {
+				monster[x_a][0] = i * 42;
+				monster[x_a][1] = j * 44;
+				monster[x_a][2] = 2;//怪物二
+				monster[x_a][3] = 1;//1-未冻住  2-冻住
+				monster[x_a++][4] = (rand() % 2 == 1 ? 2 : -2);//速度初始化
+			}
+		}
+	}
+}
+
+void putfile(const char a[])
+{
+	FILE* f;
+	int i;
+	f = fopen(a, "w");
+	if (f == NULL)
+		exit(0);
+	//存取档案
+	for (i = 1; i <= 40; i++)
+		if (i <= checkpoint)
+			fputs("1", f);
+		else
+			fputs("0", f);
+	fclose(f);
+}
+
+void showhelp()
+{
+	//显示游戏提示页面
+	settextcolor(WHITE);////帮助页面字体设置
+	settextstyle(20, 10, _T("楷体"));
+	setbkmode(TRANSPARENT);//设置文字背景透明
+	outtextxy(100, 120, _T("1.用方向键操作玩家一"));
+	outtextxy(100, 160, _T("  用WASD操作玩家二"));
+	outtextxy(100, 200, _T("2.你可以通过跳跃的方式登上台阶"));
+	outtextxy(100, 240, _T("3.按上下键上下梯子"));
+	outtextxy(100, 280, _T("4.收集雪花获得额外的分数奖励"));
+	outtextxy(100, 320, _T("5.游戏的目标是用冰雪100%覆盖每一个关卡"));
+	outtextxy(100, 360, _T("6.你有三格生命"));
+	outtextxy(100, 400, _T("  小心怪物"));
+	outtextxy(100, 440, _T("  如果他们碰到你"));
+	outtextxy(100, 480, _T("  你就会失去一格生命"));
+	outtextxy(100, 520, _T("7.如果生命值为0"));
+	outtextxy(100, 560, _T("  游戏结束"));
+	putimage(100, 600, &img_back, SRCCOPY);//返回图标
+	settextcolor(RGB(15, (x / 7 <= 214 ? x / 7 + 20 : 468 - x / 6), 240));//颜色渐变
+	settextstyle(80, 30, _T("Arial"));
+	outtextxy(600, 520, _T("制作者"));//制作者信息
+	settextstyle(60, 30, _T("黑体"));
+	outtextxy(600, 600, _T("  orbit-star"));
+}
+
+void showgame()
+{
+	int i, pause = 0;//pause用于判断游戏是否暂停(0-非暂停  1-暂停  2-返回人物选择界面)
+	short int judge[100] = { 0 };//用于判断人物和怪物朝向
+	TCHAR out[3][4] = { '\0' };//用于得分显示
+	score[0] = score[1] = score[2] = count = 0;
+	v[0] = v[1] = 0;
+	initgraph(n * 44, m * 44);
+	while (1) {
+		putimage(0, 0, &img_bk_game);//放置游戏内背景
+		//显示灌木丛和树木
+		for (i = 0; i < 100; i++) {
+			if (tree_bush[i][2] == 1) {
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_bush[1], SRCAND);//放置未冻住的灌木丛
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_bush[0], SRCPAINT);
+			}
+			else if (tree_bush[i][2] == 2) {
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_bush[3], SRCAND);//放置冻住的灌木丛一
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_bush[2], SRCPAINT);
+			}
+			else if (tree_bush[i][2] == 3) {
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_bush[5], SRCAND);//放置冻住的灌木丛二
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_bush[4], SRCPAINT);
+			}
+			else if (tree_bush[i][2] == 4) {
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_tree[1], SRCAND);//放置未冻住的树木
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_tree[0], SRCPAINT);
+			}
+			else if (tree_bush[i][2] == 5) {
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_tree[3], SRCAND);//放置冻住的树木一
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_tree[2], SRCPAINT);
+			}
+			else if (tree_bush[i][2] == 6) {
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_tree[5], SRCAND);//放置冻住的树木二
+				putimage(tree_bush[i][1], tree_bush[i][0], &img_tree[4], SRCPAINT);
+			}
+			else
+				break;
+		}
+		//显示雪花(用于得分)
+		for (i = 0; i < 50; i++) {
+			if (snow_score[i][2] == 2)
+				if (count < 66) {
+					putimage(snow_score[i][1], snow_score[i][0], &img_snow[1], SRCAND);//放置雪花
+					putimage(snow_score[i][1], snow_score[i][0], &img_snow[0], SRCPAINT);
+				}
+				else if (count < 132) {
+					putimage(snow_score[i][1] + 3, snow_score[i][0] - 1, &img_snow[3], SRCAND);//放置雪花
+					putimage(snow_score[i][1] + 3, snow_score[i][0] - 1, &img_snow[2], SRCPAINT);
+				}
+				else {
+					putimage(snow_score[i][1] + 1, snow_score[i][0] + 1, &img_snow[5], SRCAND);//放置雪花
+					putimage(snow_score[i][1] + 1, snow_score[i][0] + 1, &img_snow[4], SRCPAINT);
+				}
+			else if (snow_score[i][2] == 0)
+				break;
+		}
+		//放置砖块图像
+		for (i = 0; i < 500; i++) {
+			if (brick[i][2] == 1)
+				putimage(brick[i][1], brick[i][0], &img_brick_1);//放置砖块1
+			else if (brick[i][2] == 2)
+				putimage(brick[i][1], brick[i][0], &img_brick_2);//放置砖块2
+			else if (brick[i][2] == 3)
+				putimage(brick[i][1], brick[i][0], &img_brick_3);//放置砖块3
+			else if (brick[i][2] == 4) {
+				putimage(brick[i][1], brick[i][0], &img_brick_s_1_2, SRCAND);//放置砖块4(玩家一冻住)
+				putimage(brick[i][1], brick[i][0], &img_brick_s_1_1, SRCPAINT);
+			}
+			else if (brick[i][2] == 5) {
+				putimage(brick[i][1], brick[i][0], &img_brick_s_2_2, SRCAND);//放置砖块5(玩家二冻住)
+				putimage(brick[i][1], brick[i][0], &img_brick_s_2_1, SRCPAINT);
+			}
+			else
+				break;
+		}
+		//防置铁块
+		for (i = 0; i < 100; i++) {
+			if (iron[i][2] == 1)
+				putimage(iron[i][1], iron[i][0], &img_iron);//放置铁块
+		}
+		//放置梯子图像
+		for (i = 0; i < 100; i++) {
+			if (stair[i][2] == 1) {
+				putimage(stair[i][1], stair[i][0], &img_stair[1], SRCAND);//放置未冻住的梯子
+				putimage(stair[i][1], stair[i][0], &img_stair[0], SRCPAINT);
+			}
+			else if (stair[i][2] == 2) {
+				putimage(stair[i][1], stair[i][0], &img_stair[3], SRCAND);//放置冻住的梯子一
+				putimage(stair[i][1], stair[i][0], &img_stair[2], SRCPAINT);
+			}
+			else if (stair[i][2] == 3) {
+				putimage(stair[i][1], stair[i][0], &img_stair[5], SRCAND);//放置冻住的梯子二
+				putimage(stair[i][1], stair[i][0], &img_stair[4], SRCPAINT);
+			}
+			else
+				break;
+		}
+		//放置怪物图像
+		for (i = 0; i < 50; i++) {
+			if (monster[i][2] > 0) {//有怪物
+				if (monster[i][2] == 1) {//怪物一
+					if (monster[i][3] == 1) {//未被冰冻
+						if (monster[i][4] > 0) {//向右走
+							if (count % 100 < 50) {
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[5], SRCAND);
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[4], SRCPAINT);
+							}
+							else {
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[7], SRCAND);
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[6], SRCPAINT);
+							}
+						}
+						else {//向左走
+							if (count % 100 < 50) {
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[1], SRCAND);
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[0], SRCPAINT);
+							}
+							else {
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[3], SRCAND);
+								putimage(monster[i][1] - 15, monster[i][0] - 18, &img_monster_1[2], SRCPAINT);
+							}
+						}
+					}
+					else {//被冰冻
+						if (monster[i][4] == 1) {//朝向右
+							putimage(monster[i][1] - 23, monster[i][0] - 43, &img_monster_1[11], SRCAND);
+							putimage(monster[i][1] - 23, monster[i][0] - 43, &img_monster_1[10], SRCPAINT);
+						}
+						else {//朝向左
+							putimage(monster[i][1] - 23, monster[i][0] - 43, &img_monster_1[9], SRCAND);
+							putimage(monster[i][1] - 23, monster[i][0] - 43, &img_monster_1[8], SRCPAINT);
+						}
+					}
+				}
+				else if (monster[i][2] == 2) {//怪物二
+					if (monster[i][3] == 1) {//未被冰冻
+						if (monster[i][4] > 0) {//向右走
+							if (count % 100 < 50) {
+								putimage(monster[i][1] - 10, monster[i][0] - 13, &img_monster_2[5], SRCAND);
+								putimage(monster[i][1] - 10, monster[i][0] - 13, &img_monster_2[4], SRCPAINT);
+							}
+							else {
+								putimage(monster[i][1] - 10, monster[i][0] - 18, &img_monster_2[7], SRCAND);
+								putimage(monster[i][1] - 10, monster[i][0] - 18, &img_monster_2[6], SRCPAINT);
+							}
+						}
+						else {//向左走
+							if (count % 100 < 50) {
+								putimage(monster[i][1] - 10, monster[i][0] - 13, &img_monster_2[1], SRCAND);
+								putimage(monster[i][1] - 10, monster[i][0] - 13, &img_monster_2[0], SRCPAINT);
+							}
+							else {
+								putimage(monster[i][1] - 10, monster[i][0] - 18, &img_monster_2[3], SRCAND);
+								putimage(monster[i][1] - 10, monster[i][0] - 18, &img_monster_2[2], SRCPAINT);
+							}
+						}
+					}
+					else {//被冰冻
+						if (monster[i][4] == 1) {//朝向右
+							putimage(monster[i][1] - 21, monster[i][0] - 48, &img_monster_2[11], SRCAND);
+							putimage(monster[i][1] - 21, monster[i][0] - 48, &img_monster_2[10], SRCPAINT);
+						}
+						else {//朝向左
+							putimage(monster[i][1] - 21, monster[i][0] - 48, &img_monster_2[9], SRCAND);
+							putimage(monster[i][1] - 21, monster[i][0] - 48, &img_monster_2[8], SRCPAINT);
+						}
+					}
+				}
+			}
+		}
+		//玩家图像的放置
+		if (p_P[0][2] > 0) {
+			if (v[0] > 0)//判断玩家一人物朝向
+				judge[0] = 4;
+			else if (v[0] < 0)
+				judge[0] = 0;
+			//有关无敌时间的人物图像显示
+			if ((int)p_P[0][2] / 3 % 2 == 1 || (p_P[0][2] > 0 && p_P[0][2] <= 3)) {
+				//人物一处于非跳跃状态
+				if (p_P[0][3] == 0) {
+					//人物一静止时
+					if (v[0] == 0) {
+						if (count > 100) {
+							putimage((int)p_P[0][1], (int)p_P[0][0], &img_p_1[judge[0] + 1], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0], &img_p_1[judge[0]], SRCPAINT);
+						}
+						else {
+							putimage((int)p_P[0][1], (int)p_P[0][0], &img_p_1[judge[0] + 3], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0], &img_p_1[judge[0] + 2], SRCPAINT);
+						}
+					}
+					//人物一移动时
+					else {
+						if (count % 100 <= 33) {
+							putimage((int)p_P[0][1] + 6, (int)p_P[0][0], &img_p_1_w[judge[0] * 3 / 2 + 1], SRCAND);
+							putimage((int)p_P[0][1] + 6, (int)p_P[0][0], &img_p_1_w[judge[0] * 3 / 2], SRCPAINT);
+						}
+						else if (count % 100 <= 66) {
+							putimage((int)p_P[0][1] + 2, (int)p_P[0][0], &img_p_1_w[judge[0] * 3 / 2 + 3], SRCAND);
+							putimage((int)p_P[0][1] + 2, (int)p_P[0][0], &img_p_1_w[judge[0] * 3 / 2 + 2], SRCPAINT);
+						}
+						else {
+							putimage((int)p_P[0][1], (int)p_P[0][0], &img_p_1_w[judge[0] * 3 / 2 + 5], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0], &img_p_1_w[judge[0] * 3 / 2 + 4], SRCPAINT);
+						}
+					}
+				}
+				//人物一处于跳跃状态
+				else if (p_P[0][3] == 2) {
+					if (judge[0] == 0) {//朝向左
+						if (p_P[0][4] > 40) {//上升
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0] + 1], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0]], SRCPAINT);
+						}
+						else {//下降
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0] + 3], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0] + 2], SRCPAINT);
+						}
+					}
+					else {//朝向右
+						if (p_P[0][4] > 40) {//上升
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0] + 1], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0]], SRCPAINT);
+						}
+						else {//下降
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0] + 3], SRCAND);
+							putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_jump_1[judge[0] + 2], SRCPAINT);
+						}
+					}
+				}
+				//人物一处于爬梯子状态
+				else {
+					if (count % 100 <= 33) {
+						putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_p_1_u[1], SRCAND);
+						putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_p_1_u[0], SRCPAINT);
+					}
+					else if (count % 100 <= 66) {
+						putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_p_1_u[3], SRCAND);
+						putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_p_1_u[2], SRCPAINT);
+					}
+					else {
+						putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_p_1_u[5], SRCAND);
+						putimage((int)p_P[0][1], (int)p_P[0][0] - 22, &img_p_1_u[4], SRCPAINT);
+					}
+				}
+			}
+		}
+		if (mode == 2 && p_P[1][2] > 0) {
+			if (v[1] > 0)//判断玩家二人物朝向
+				judge[1] = 4;
+			else if (v[1] < 0)
+				judge[1] = 0;
+			//有关无敌时间的人物图像显示
+			if ((int)p_P[1][2] / 3 % 2 == 1 || (p_P[1][2] > 0 && p_P[1][2] <= 3)) {
+				//人物二处于非跳跃状态
+				if (p_P[1][3] == 0) {
+					//人物二静止时
+					if (v[1] == 0 && mode == 2) {
+						if (count > 100) {
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2[judge[1] + 1], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2[judge[1]], SRCPAINT);
+						}
+						else {
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2[judge[1] + 3], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2[judge[1] + 2], SRCPAINT);
+						}
+					}
+					//人物二移动时
+					else {
+						if (count % 100 <= 33) {
+							putimage((int)p_P[1][1] + 2, (int)p_P[1][0], &img_p_2_w[judge[1] * 3 / 2 + 1], SRCAND);
+							putimage((int)p_P[1][1] + 2, (int)p_P[1][0], &img_p_2_w[judge[1] * 3 / 2], SRCPAINT);
+						}
+						else if (count % 100 <= 66) {
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2_w[judge[1] * 3 / 2 + 3], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2_w[judge[1] * 3 / 2 + 2], SRCPAINT);
+						}
+						else {
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2_w[judge[1] * 3 / 2 + 5], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0], &img_p_2_w[judge[1] * 3 / 2 + 4], SRCPAINT);
+						}
+					}
+				}
+				//人物二处于跳跃状态
+				else if (p_P[1][3] == 2) {
+					if (judge[1] == 0) {//朝向左
+						if (p_P[1][4] > 40) {//上升
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1] + 1], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1]], SRCPAINT);
+						}
+						else {//下降
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1] + 3], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1] + 2], SRCPAINT);
+						}
+					}
+					else {//朝向右
+						if (p_P[1][4] > 40) {//上升
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1] + 1], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1]], SRCPAINT);
+						}
+						else {//下降
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1] + 3], SRCAND);
+							putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_jump_2[judge[1] + 2], SRCPAINT);
+						}
+					}
+				}
+				//人物二处于爬梯子状态
+				else {
+					if (count % 100 <= 33) {
+						putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_p_2_u[1], SRCAND);
+						putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_p_2_u[0], SRCPAINT);
+					}
+					else if (count % 100 <= 66) {
+						putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_p_2_u[3], SRCAND);
+						putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_p_2_u[2], SRCPAINT);
+					}
+					else {
+						putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_p_2_u[5], SRCAND);
+						putimage((int)p_P[1][1], (int)p_P[1][0] - 22, &img_p_2_u[4], SRCPAINT);
+					}
+				}
+			}
+		}
+		count = count % 200 + 1;
+		//游戏内选项
+		putimage(n * 44 - 140, 32, &img_pause_2, SRCAND);//显示暂停标识
+		putimage(n * 44 - 140, 32, &img_pause_1, SRCPAINT);
+		putimage(n * 44 - 100, 30, &img_music_2, SRCAND);//显示音乐标识
+		putimage(n * 44 - 100, 30, &img_music_1, SRCPAINT);
+		putimage(n * 44 - 50, 32, &img_sound_2, SRCAND);//显示音效标识
+		putimage(n * 44 - 50, 32, &img_sound_1, SRCPAINT);
+		//游戏内计分板
+		putimage(0, 0, &img_score_2, SRCAND);//显示总得分板
+		putimage(0, 0, &img_score_1, SRCPAINT);
+		putimage(0, m * 42 - 80, &img_score_1_2, SRCAND);//显示玩家一得分板
+		putimage(0, m * 42 - 80, &img_score_1_1, SRCPAINT);
+		settextstyle(30, 0, _T("黑体"));
+		_stprintf(out[0], _T("%d"), ((int)p_P[0][2] == 3 ? 3 : (int)p_P[0][2] % 3));//玩家一剩余血量
+		outtextxy(100, m * 42 - 60, out[0]);
+		if (mode == 2) {
+			putimage(n * 44 - 170, m * 42 - 70, &img_score_2_2, SRCAND);//显示玩家二得分板
+			putimage(n * 44 - 170, m * 42 - 70, &img_score_2_1, SRCPAINT);
+			settextstyle(30, 0, _T("黑体"));
+			_stprintf(out[1], _T("%d"), ((int)p_P[1][2] == 3 ? 3 : (int)p_P[1][2] % 3));//玩家二剩余血量
+			outtextxy(n * 44 - 130, m * 42 - 60, out[1]);
+		}
+		setbkmode(TRANSPARENT);//设置得分字体
+		settextstyle(18, 0, _T("黑体"));
+		_stprintf(out[0], _T("%d"), score[0]);//总得分-吃掉雪花个数
+		outtextxy(60, 25, out[0]);
+		_stprintf(out[1], _T("%d"), (int)(100 * score[1] / all));//玩家一得分-冻住的物品占比
+		for (i = 0; i < 4; i++)
+			if (out[1][i] == '\0') {
+				out[1][i] = '%';
+				out[1][i + 1] = '\0';
+				break;
+			}
+		outtextxy(100, m * 42 - 30, out[1]);
+		if (mode == 2) {
+			_stprintf(out[2], _T("%d"), (int)(100 * score[2] / all));//玩家二得分-冻住的物品占比
+			for (i = 0; i < 4; i++)
+				if (out[2][i] == '\0') {
+					out[2][i] = '%';
+					out[2][i + 1] = '\0';
+					break;
+				}
+			outtextxy(n * 44 - 145, m * 42 - 30, out[2]);
+		}
+		//游戏胜利 失败 暂停处理
+		if (pause == 0) {//如果未暂停  游戏继续
+			update();
+			updateuser();
+		}
+		else {//如果暂停  显示暂停界面
+			pause = showpause();
+			if (pause == 2) {//如果返回 退回关卡选择界面
+				screen = 2;
+				closegraph();
+				initgraph(width, high);
+				break;
+			}
+		}
+		if (p_P[0][2] == 0 && (mode == 1 || p_P[1][2] == 0))//玩家一和玩家二全部死亡
+			if (die()) {
+				getpart(checkpoint);
+				break;
+			}
+		if (score[1] + score[2] == all)//如果冰冻全部物品  胜利
+			if (showwin()) {
+				getpart(++checkpoint);
+				break;
+			}
+		FlushBatchDraw();
+		//鼠标交互-关卡内界面
+		if (MouseHit()) {
+			MOUSEMSG hit = GetMouseMsg();
+			if (hit.uMsg == WM_LBUTTONDOWN)
+				if (hit.x >= n * 44 - 130 && hit.x <= n * 44 - 102 && hit.y >= 38 && hit.y <= 64)//暂停
+					pause = 1;
+				else if (hit.x >= n * 44 - 92 && hit.x <= n * 44 - 54 && hit.y >= 37 && hit.y <= 64) {//音乐开关
+					music[0] = -music[0];
+					if (music[0] > 0) {
+						mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+						mciSendString("play bkmusic repeat", NULL, 0, NULL);
+					}
+					else {
+						mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL); //打开音乐文件
+						mciSendString("close bkmusic", NULL, 0, NULL); //先把前面一次的音乐关闭
+					}
+				}
+				else if (hit.x >= n * 44 - 44 && hit.x <= n * 44 - 19 && hit.y >= 38 && hit.y <= 64)//音效开关
+					music[1] = -music[1];
+		}
+	}
+}
+
+int showpause()
+{
+	//放置动态暂停界面
+	if (count < 100) {
+		putimage(n * 22 - 365, m * 21 - 275, &img_pause_2_i, SRCAND);
+		putimage(n * 22 - 365, m * 21 - 275, &img_pause_1_i, SRCPAINT);
+	}
+	else {
+		putimage(n * 22 - 365, m * 21 - 275, &img_pause_2_m, SRCAND);
+		putimage(n * 22 - 365, m * 21 - 275, &img_pause_1_m, SRCPAINT);
+	}
+	//鼠标交互-关卡暂停界面
+	if (MouseHit()) {
+		MOUSEMSG hit = GetMouseMsg();
+		if (hit.uMsg == WM_LBUTTONDOWN)
+			if (hit.x >= n * 22 + 18 && hit.x <= n * 44 + 345 && hit.y >= m * 21 + 201 && hit.y <= m * 21 + 255)//返回游戏
+				return 0;
+			else if (hit.x >= n * 22 - 348 && hit.x <= n * 22 - 220 && hit.y >= m * 21 + 201 && hit.y <= m * 21 + 255)//返回人物选择界面
+				return 2;
+			else if (hit.x >= n * 44 - 92 && hit.x <= n * 44 - 54 && hit.y >= 37 && hit.y <= 64) {//音乐开关
+				music[0] = -music[0];
+				if (music[0] > 0) {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+					mciSendString("play bkmusic repeat", NULL, 0, NULL);
+				}
+				else {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL); //打开音乐文件
+					mciSendString("close bkmusic", NULL, 0, NULL); //先把前面一次的音乐关闭
+				}
+			}
+			else if (hit.x >= n * 44 - 44 && hit.x <= n * 44 - 19 && hit.y >= 38 && hit.y <= 64)//音效开关
+				music[1] = -music[1];
+	}
+	return 1;
+}
+
+void showselecta()
+{
+	//人物选择界面
+	showsnow();
+	if (x % 300 > 149)
+		putimage(135, 89, &img_begin_1);//显示动态人物选择标识
+	else
+		putimage(135, 90, &img_begin_2);
+	FlushBatchDraw();
+	//鼠标交互-人物选择界面
+	if (MouseHit()) {
+		MOUSEMSG hit = GetMouseMsg();
+		if (hit.uMsg == WM_LBUTTONDOWN)
+			if (hit.x >= 172 && hit.x <= 494 && hit.y >= 190 && hit.y <= 426) {//选择单人模式
+				mode = 1;
+				screen = 2;
+			}
+			else if (hit.x >= 507 && hit.x <= 850 && hit.y >= 190 && hit.y <= 426) {//选择双人模式
+				mode = 2;
+				screen = 2;
+			}
+			else if (hit.x >= 410 && hit.x <= 575 && hit.y >= 571 && hit.y <= 625)//返回游戏开始界面
+				screen = 0;
+			else if (hit.x >= 908 && hit.x <= 946 && hit.y >= 37 && hit.y <= 64) {//音乐开关
+				music[0] = -music[0];
+				if (music[0] > 0) {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+					mciSendString("play bkmusic repeat", NULL, 0, NULL);
+				}
+				else {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL); //打开音乐文件
+					mciSendString("close bkmusic", NULL, 0, NULL); //先把前面一次的音乐关闭
+				}
+			}
+			else if (hit.x >= 956 && hit.x <= 981 && hit.y >= 38 && hit.y <= 64)//音效开关
+				music[1] = -music[1];
+	}
+}
+
+void showselectb()
+{
+	short int i, j;
+	openfile("../file.txt");//读取档案
+	//关卡选择页面
+	settextcolor(CYAN);//关数提示字体设置
+	settextstyle(20, 10, _T("楷体"));
+	setbkmode(TRANSPARENT);//设置文字背景透明
+	showsnow();
+	if (mode == 1)
+		if (x % 300 > 149)
+			putimage(136, 92, &img_checkpoint_1_1);//显示单人模式动态关卡选择标识
+		else
+			putimage(136, 92, &img_checkpoint_1_2);
+	else
+		if (x % 300 > 149)
+			putimage(136, 92, &img_checkpoint_2_1);//显示双人模式动态关卡选择标识
+		else
+			putimage(136, 92, &img_checkpoint_2_2);
+	//根据通关情况放置关卡图标
+	TCHAR s[3];
+	for (i = 0; i < 4; i++)
+		for (j = 0; j < 10; j++) {
+			if (file[i * 10 + j] == '1') {
+				putimage(230 + j * 55, 270 + i * 57, &img_brick_s_1_2, SRCAND);//关卡选择界面已通关关卡放置冰冻砖块
+				putimage(230 + j * 55, 270 + i * 57, &img_brick_s_1_1, SRCPAINT);
+			}
+			else {
+				//随机放置3种颜色砖块
+				if ((i * 10 + j) % 3 == 0)
+					putimage(230 + j * 55, 270 + i * 57, &img_brick_1);
+				else if ((i * 10 + j) % 3 == 1)
+					putimage(230 + j * 55, 270 + i * 57, &img_brick_2);
+				else if ((i * 10 + j) % 3 == 2)
+					putimage(230 + j * 55, 270 + i * 57, &img_brick_3);
+			}
+			//显示关卡数字
+			if ((i == 0 && j == 0) || file[i * 10 + j - 1] == '1') {
+				_stprintf(s, _T("%d"), i * 10 + j + 1);
+				outtextxy(242 + j * 55, 281 + i * 57, s);
+			}
+		}
+	FlushBatchDraw();
+	//鼠标交互-关卡选择界面
+	if (MouseHit()) {
+		MOUSEMSG hit = GetMouseMsg();
+		if (hit.uMsg == WM_LBUTTONDOWN)
+			if (hit.x >= 409 && hit.x <= 575 && hit.y >= 570 && hit.y <= 625) {//返回人物选择模式
+				mode = 0;
+				screen = 1;
+			}
+			else if (hit.x >= 230 && hit.x <= 769 && hit.y >= 270 && hit.y <= 483) {//判断选择的关卡
+				for (i = 0; i < 4; i++) {
+					for (j = 0; j < 10; j++)
+						if (hit.x >= 230 + j * 55 && hit.x <= 272 + j * 55 && hit.y >= 270 + i * 57 && hit.y <= 312 + i * 57)//如果点到了关卡
+							break;
+					if (hit.x >= 230 + j * 55 && hit.x <= 272 + j * 55 && hit.y >= 270 + i * 57 && hit.y <= 312 + i * 57)//如果点到了关卡
+						break;
+				}
+				if ((i == 0 && j == 0) || file[i * 10 + j - 1] == '1') {//如果关卡已经解锁
+					checkpoint = i * 10 + j + 1;
+					getpart(checkpoint);
+					closegraph();
+					screen = 3;
+				}
+			}
+			else if (hit.x >= 908 && hit.x <= 946 && hit.y >= 37 && hit.y <= 64) {//音乐开关
+				music[0] = -music[0];
+				if (music[0] > 0) {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+					mciSendString("play bkmusic repeat", NULL, 0, NULL);
+				}
+				else {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL); //打开音乐文件
+					mciSendString("close bkmusic", NULL, 0, NULL); //先把前面一次的音乐关闭
+				}
+			}
+			else if (hit.x >= 956 && hit.x <= 981 && hit.y >= 38 && hit.y <= 64)//音效开关
+				music[1] = -music[1];
+	}
+}
+
+void showstart()
+{
+	//界面显示
+	showsnow();
+	putimage(30, 150, &img_logo_2, SRCAND);//logo
+	putimage(30, 150, &img_logo_1, SRCPAINT);
+	putimage(430, 520, &img_start_2, SRCAND);//开始游戏
+	putimage(430, 520, &img_start_1, SRCPAINT);
+	putimage(455, 580, &img_help_2, SRCAND);//帮助
+	putimage(455, 580, &img_help_1, SRCPAINT);
+	FlushBatchDraw();
+	//鼠标交互-开始界面
+	if (MouseHit()) {
+		MOUSEMSG hit = GetMouseMsg();
+		if (hit.uMsg == WM_LBUTTONDOWN)
+			if (hit.x >= 430 && hit.x <= 570 && hit.y >= 520 && hit.y <= 560)//开始游戏
+				screen = 1;
+			else if (hit.x >= 908 && hit.x <= 946 && hit.y >= 37 && hit.y <= 64) {//音乐开关
+				music[0] = -music[0];
+				if (music[0] > 0) {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+					mciSendString("play bkmusic repeat", NULL, 0, NULL);
+				}
+				else {
+					mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL); //打开音乐文件
+					mciSendString("close bkmusic", NULL, 0, NULL); //先把前面一次的音乐关闭
+				}
+			}
+			else if (hit.x >= 956 && hit.x <= 981 && hit.y >= 38 && hit.y <= 64)//音效开关
+				music[1] = -music[1];
+			else if (hit.x >= 455 && hit.x <= 545 && hit.y >= 580 && hit.y <= 620)//显示帮助界面
+				while (1) {
+					showsnow();
+					//放置音乐和音效开关
+					showhelp();
+					FlushBatchDraw();
+					//鼠标交互-帮助界面
+					if (MouseHit()) {
+						hit = GetMouseMsg();
+						if (hit.uMsg == WM_LBUTTONDOWN)
+							if (hit.x >= 100 && hit.x <= 226 && hit.y >= 600 && hit.y <= 651)//退出帮助页面
+								break;
+							else if (hit.x >= 908 && hit.x <= 946 && hit.y >= 37 && hit.y <= 64) {//音乐开关
+								music[0] = -music[0];
+								if (music[0] > 0) {
+									mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+									mciSendString("play bkmusic repeat", NULL, 0, NULL);
+								}
+								else {
+									mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL); //打开音乐文件
+									mciSendString("close bkmusic", NULL, 0, NULL); //先把前面一次的音乐关闭
+								}
+							}
+							else if (hit.x >= 956 && hit.x <= 981 && hit.y >= 38 && hit.y <= 64)//音效开关
+								music[1] = -music[1];
+					}
+				}
+	}
+}
+
+void showsnow()
+{
+	int i, j;
+	putimage(0, 0, &img_background, SRCCOPY);//纯色背景
+	for (i = 0; i < 100; i++)
+		for (j = 0; j < 60; j++)
+			if (i * 40 - x < -42 || i * 40 - x > 1000 || j * 80 + x / 3 - 80 - i * 40 < -42 || j * 80 + x / 3 - 80 - i * 40 > 730)
+				continue;//判断是否超出画布范围
+			else
+				putimage(i * 40 - x, j * 80 + x / 3 - 80 - i * 40, &img_bksnow, SRCCOPY);//放置飘动的雪花
+	x = x % 3000 + 1;//背景雪花显示和偏移
+	putimage(900, 30, &img_music_2, SRCAND);//显示音乐标识
+	putimage(900, 30, &img_music_1, SRCPAINT);
+	putimage(950, 32, &img_sound_2, SRCAND);//显示音效标识
+	putimage(950, 32, &img_sound_1, SRCPAINT);
+}
+
+int showwin()
+{
+	while (1) {//简陋的胜利界面
+		settextcolor(LIGHTCYAN);
+		settextstyle(n * 10, 0, _T("黑体"));
+		outtextxy(n * 22 - n * 15 / 2, m * 22 - n * 5, _T("WIN"));
+		settextstyle(n, 0, _T("黑体"));
+		outtextxy(n * 22 - n * 15 / 2, m * 22 + n * 5, _T(" please click win to the next"));
+		FlushBatchDraw();
+		if (MouseHit()) {
+			MOUSEMSG hit = GetMouseMsg();
+			if (hit.uMsg == WM_LBUTTONDOWN)
+				if (hit.x >= n * 22 - n * 15 / 2 && hit.x <= m * 22 + n * 15 && hit.y >= m * 22 - n * 5 && hit.y <= m * 22 + n * 5) {//下一关
+					putfile("../file.txt");//存取档案
+					return 1;
+				}
+		}
+	}
+}
+
+void startup()
+{
+	initgraph(width, high);
+	BeginBatchDraw();
+	//背景音乐播放
+	mciSendString("open \"../sound\\bkstart.mp3\" alias bkmusic", NULL, 0, NULL);
+	mciSendString("play bkmusic repeat", NULL, 0, NULL);
+	music[0] = 1;
+	music[1] = 1;
+}
+
+void update()
+{
+	int i, j;
+	double a, b, c;
+	if (count % 3 == 0) {//计数更新
+		//怪物更新
+		for (i = 0; i < 50; i++) {
+			if (monster[i][2] > 0) {
+				if (monster[i][3] != 2 && monster[i][3] < 5) {//如果怪物未被冰冻 怪物移动
+					monster[i][1] += monster[i][4];
+					//边缘判断
+					for (j = 0; j < 500; j++) {
+						if (brick[j][2] > 0)//砖块
+							if (monster[i][0] + 42 == brick[j][0] && monster[i][1] >= brick[j][1] - 22 && monster[i][1] <= brick[j][1] + 22)//在砖块上
+								break;
+						if (stair[j][2] > 0)//梯子
+							if (monster[i][0] + 42 == stair[j][0] && monster[i][1] >= stair[j][1] - 22 && monster[i][1] <= stair[j][1] + 22)//在梯子上
+								break;
+					}
+					if (j == 500) {
+						monster[i][4] = -monster[i][4];//反向
+						monster[i][1] += monster[i][4] * 2;//防止怪物走出范围
+					}
+					//玩家掉血处理
+					if (p_P[0][2] > 0 && p_P[0][2] < 4) {//玩家一存活且非无敌
+						if (monster[i][2] == 1)//怪物一
+							if (monster[i][3] == 1)//如果怪物未被冰冻
+								if ((int)p_P[0][1] + 80 > monster[i][1] && (int)p_P[0][1] < monster[i][1] && (int)p_P[0][0] + 73 >= monster[i][0] - 15 && (int)p_P[0][0] <= monster[i][0] + 42) {//玩家一撞到怪物
+									p_P[0][4] = 80;
+									p_P[0][3] = 2;//变为跳跃状态
+									if (music[1] > 0) {
+										musicclose("attack");
+										musicopen("attack");
+									}
+									if (p_P[0][2] == 1)
+										p_P[0][2] = 0;
+									else
+										p_P[0][2] = p_P[0][2] + 59;
+								}
+						if (monster[i][2] == 2)//怪物二
+							if (monster[i][3] == 1)//如果怪物未被冰冻
+								if ((int)p_P[0][1] + 80 > monster[i][1] && (int)p_P[0][1] < monster[i][1] && (int)p_P[0][0] + 73 >= monster[i][0] - 15 && (int)p_P[0][0] <= monster[i][0] + 42) {//玩家一撞到怪物
+									p_P[0][4] = 80;
+									p_P[0][3] = 2;//变为跳跃状态
+									if (music[1] > 0) {
+										musicclose("attack");
+										musicopen("attack");
+									}
+									if (p_P[0][2] == 1)
+										p_P[0][2] = 0;
+									else
+										p_P[0][2] = p_P[0][2] + 59;
+								}
+					}
+					if (mode == 2 && p_P[1][2] > 0 && p_P[1][2] < 4) {//玩家二存活且非无敌
+						if (monster[i][2] == 1)//怪物一
+							if (monster[i][3] == 1)//如果怪物未被冰冻
+								if ((int)p_P[1][1] + 80 > monster[i][1] && (int)p_P[1][1] < monster[i][1] && (int)p_P[1][0] + 73 >= monster[i][0] - 15 && (int)p_P[1][0] <= monster[i][0] + 42) {//玩家一撞到怪物
+									p_P[1][4] = 80;
+									p_P[1][3] = 2;//变为跳跃状态
+									if (music[1] > 0) {
+										musicclose("attack");
+										musicopen("attack");
+									}
+									if (p_P[1][2] == 1)
+										p_P[1][2] = 0;
+									else
+										p_P[1][2] = p_P[1][2] + 59;
+								}
+						if (monster[i][2] == 2)//怪物二
+							if (monster[i][3] == 1)//如果怪物未被冰冻
+								if ((int)p_P[1][1] + 80 > monster[i][1] && (int)p_P[1][1] < monster[i][1] && (int)p_P[1][0] + 73 >= monster[i][0] - 15 && (int)p_P[1][0] <= monster[i][0] + 42) {//玩家一撞到怪物
+									p_P[1][4] = 80;
+									p_P[1][3] = 2;//变为跳跃状态
+									if (music[1] > 0) {
+										musicclose("attack");
+										musicopen("attack");
+									}
+									if (p_P[1][2] == 1)
+										p_P[1][2] = 0;
+									else
+										p_P[1][2] = p_P[1][2] + 59;
+								}
+					}
+				}
+				else {
+					monster[i][3]--;
+					if (monster[i][3] == 5)
+						monster[i][3] = 1;
+				}
+			}
+		}
+		//玩家更新
+		if (p_P[0][2] >= 0) {//玩家一相关
+			if ((int)p_P[0][0] > m * 44 + 44)
+				p_P[0][2] = 0;
+			p_P[0][1] += v[0];
+			//速度更新
+			if (v[0] > 0)
+				v[0] = (v[0] < 0.2 ? 0 : v[0] - 0.2);
+			else if (v[0] < 0)
+				v[0] = (v[0] > -0.2 ? 0 : v[0] + 0.2);
+			//防止玩家一出边框
+			if (p_P[0][1] < -37) {
+				p_P[0][1] = -37;
+				v[0] = 0;
+			}
+			else if (p_P[0][1] > (double)n * 44 - 86) {
+				p_P[0][1] = (double)n * 44 - 86;
+				v[0] = 0;
+			}
+			//无敌时间的处理
+			if (p_P[0][2] > 3 && count % 5 == 0)
+				p_P[0][2] -= 3;
+			//玩家一相关
+			if (p_P[0][3] == 2) {
+				//计算下落
+				a = 6.3 * p_P[0][4] - 0.07875 * p_P[0][4] * p_P[0][4];
+				b = 6.3 * (p_P[0][4] - 2) - 0.07875 * (p_P[0][4] - 2) * (p_P[0][4] - 2);
+				p_P[0][0] = p_P[0][0] + a - b;
+				p_P[0][4] -= 2;
+				//ab合理化
+				if (a < b) {
+					c = a;
+					a = b;
+					b = c;
+				}
+				//判断是否落地
+				for (i = 0; i < 500; i++) {
+					//砖块相关
+					if (p_P[0][4] < 40)//下落过程中
+						if (brick[i][2] > 0)
+							if ((int)(p_P[0][0] + a - b) + 73 >= brick[i][0] && (int)(p_P[0][0] - a + b) + 73 <= brick[i][0])//高度判断
+								if (p_P[0][1] + 80 > brick[i][1] && p_P[0][1] < brick[i][1]) {//宽度判断
+									p_P[0][0] = (double)brick[i][0] - 73;//位置自然化
+									p_P[0][3] = 0;//状态改变
+									p_P[0][4] = 40;//速度初始化
+									if (brick[i][2] != 4) {//未被玩家一冰冻 占比增加
+										score[1]++;
+										if (brick[i][2] == 5)//之前被玩家二冰冻 玩家二占比减少
+											score[2]--;
+									}
+									brick[i][2] = 4;//冰冻
+								}
+					//梯子相关
+					if (i < 100)
+						if (p_P[0][4] < 40)//下落过程中
+							if (stair[i][2] > 0)
+								if ((int)(p_P[0][0] + a - b) + 73 >= stair[i][0] && (int)(p_P[0][0] - a + b) + 73 <= stair[i][0])//高度判断
+									if (p_P[0][1] + 80 > stair[i][1] && p_P[0][1] < stair[i][1]) {//宽度判断
+										//防止误判
+										for (j = 0; j < 100; j++)
+											//判断所处位置有没有梯子
+											if ((int)(p_P[0][0] + a - b) + 31 >= stair[j][0] && (int)(p_P[0][0] - a + b) + 31 <= stair[j][0])//高度判断
+												if (p_P[0][1] + 80 > stair[j][1] && p_P[0][1] < stair[j][1])//宽度判断
+													break;
+										if (stair[i][2] == 1) {//如果之前未被冰冻 占比增加
+											score[1]++;
+											if (stair[i][2] == 3)//如果之前被玩家二冰冻 玩家二占比减少
+												score[2]--;
+										}
+										stair[i][2] = 2;//冰冻
+										if (j != 100) {
+											if (stair[j][2] == 1) {//如果之前未被冰冻 占比增加
+												score[1]++;
+												if (stair[j][2] == 3)//如果之前被玩家二冰冻 玩家二占比减少
+													score[2]--;
+											}
+											stair[j][2] = 2;//冰冻
+										}
+										if (p_P[0][4] < 40)//下落过程中
+											if (j == 100) {
+												p_P[0][0] = (double)stair[i][0] - 73;//位置自然化
+												p_P[0][3] = 0;//状态改变
+												p_P[0][4] = 40;//速度初始化
+											}
+									}
+					//铁块相关
+					if (i < 100)
+						if (p_P[0][4] < 40)//下落过程中
+							if (iron[i][2] > 0)
+								if ((int)(p_P[0][0] + a - b) + 73 >= iron[i][0] && (int)(p_P[0][0] - a + b) + 73 <= iron[i][0])//高度判断
+									if (p_P[0][1] + 80 > iron[i][1] && p_P[0][1] < iron[i][1]) {//宽度判断
+										if (p_P[0][1] + 80 - v[0] <= iron[i][1])//撞到铁块
+											p_P[0][1] = (double)iron[i][1] - 80;
+										else if (p_P[0][1] - v[0] >= iron[i][1])//撞到铁块
+											p_P[0][1] = (double)iron[i][1];
+										else {
+											p_P[0][0] = (double)iron[i][0] - 73;//位置自然化
+											p_P[0][3] = 0;//状态改变
+											p_P[0][4] = 40;//速度初始化
+										}
+									}
+					//玩家冰冻怪物处理
+					if (i < 100)
+						if (p_P[0][4] < 40)//下落过程中
+							if (monster[i][3] == 1) {//怪物移动中
+								if ((int)p_P[0][1] + 80 > monster[i][1] && (int)p_P[0][1] < monster[i][1])
+									if ((int)(p_P[0][0] - a + b) + 73 < monster[i][0] - 15 && (int)(p_P[0][0] + a - b) + 80 > monster[i][0] - 15) {//玩家一跳到怪物头顶
+										p_P[0][4] = 80;
+										p_P[0][3] = 2;//变为跳跃状态
+										monster[i][3] = 400;//冰冻怪物
+										if (music[1] > 0) {
+											musicclose("frozen");
+											musicopen("frozen");
+										}
+									}
+							}
+							else if (monster[i][3] > 1) {//怪物冰冻中
+								if ((int)p_P[0][1] + 80 > monster[i][1] && (int)p_P[0][1] < monster[i][1])
+									if ((int)(p_P[0][0] - a + b) + 73 < monster[i][0] - 43 && (int)(p_P[0][0] + a - b) + 75 > monster[i][0] - 43) {//玩家一跳到冰块上
+										p_P[0][0] = (double)monster[i][0] - 43 - 73;//位置自然化
+										p_P[0][3] = 0;//状态改变
+										p_P[0][4] = 40;//速度初始化
+									}
+							}
+					//得分雪花相关
+					if (i < 50)
+						if (snow_score[i][2] == 2)
+							if ((int)(p_P[0][0] + a - b) + 69 >= snow_score[i][0] && (int)(p_P[0][0] - a + b) - 50 <= snow_score[i][0])//高度判断
+								if (p_P[0][1] + 77 > snow_score[i][1] && p_P[0][1] - 3 < snow_score[i][1]) {//宽度判断
+									snow_score[i][2] = 1;
+									score[0]++;
+									if (music[1] > 0) {
+										musicclose("score");
+										musicopen("score");
+									}
+								}
+				}
+			}
+			else if (p_P[0][3] == 1) {
+				//判断是否落地
+				if (p_P[0][1] + 80 <= p_stair[0] || p_P[0][1] >= p_stair[0]) {//宽度判断  是否和梯子在同一宽度位置
+					p_P[0][3] = 2;//状态改变
+					p_P[0][4] = 40;//速度初始化
+				}
+				else {//是的话
+					for (i = 0; i < 500; i++) {
+						//砖块相关
+						if (brick[i][2] > 0)
+							if ((int)p_P[0][0] + 74 >= brick[i][0] && (int)p_P[0][0] + 72 <= brick[i][0])//高度判断
+								if (p_P[0][1] + 80 > brick[i][1] && p_P[0][1] < brick[i][1]) {//宽度判断
+									p_P[0][0] = (double)brick[i][0] - 73;//位置自然化
+									p_P[0][3] = 0;//状态改变
+									p_P[0][4] = 40;//速度初始化
+									if (brick[i][2] != 4) {//未被玩家一冰冻 占比增加
+										score[1]++;
+										if (brick[i][2] == 5)//之前被玩家二冰冻 玩家二占比减少
+											score[2]--;
+									}
+									brick[i][2] = 4;//冰冻
+								}
+						//梯子相关
+						if (i < 100)
+							if (stair[i][2] > 0) {
+								if ((int)p_P[0][0] + 74 >= stair[i][0] && (int)p_P[0][0] + 72 <= stair[i][0])//高度判断
+									if (p_P[0][1] + 80 > stair[i][1] && p_P[0][1] < stair[i][1]) {//宽度判断
+										//防止误判
+										for (j = 0; j < 100; j++)
+											//判断所处位置有没有梯子
+											if ((int)p_P[0][0] + 32 >= stair[j][0] && (int)p_P[0][0] + 30 <= stair[j][0])//高度判断
+												if (p_P[0][1] + 80 > stair[j][1] && p_P[0][1] < stair[j][1])//宽度判断
+													break;
+										if (stair[i][2] == 1) {//如果之前未被冰冻 占比增加
+											score[1]++;
+											if (stair[i][2] == 3)//如果之前被玩家二冰冻 玩家二占比减少
+												score[2]--;
+										}
+										stair[i][2] = 2;//冰冻
+										if (j != 100) {
+											if (stair[j][2] == 1) {//如果之前未被冰冻 占比增加
+												score[1]++;
+												if (stair[j][2] == 3)//如果之前被玩家二冰冻 玩家二占比减少
+													score[2]--;
+											}
+											stair[j][2] = 2;//冰冻
+										}
+										if (j == 100) {
+											p_P[0][0] = (double)stair[i][0] - 73;//位置自然化
+											p_P[0][3] = 0;//状态改变
+											p_P[0][4] = 40;//速度初始化
+										}
+									}
+							}
+						//铁块相关
+						if (i < 100)
+							if (iron[i][2] > 0)
+								if ((int)p_P[0][0] + 73 >= iron[i][0] && (int)p_P[0][0] + 73 <= iron[i][0])//高度判断
+									if (p_P[0][1] + 80 > iron[i][1] && p_P[0][1] < iron[i][1]) {//宽度判断
+										p_P[0][0] = (double)iron[i][0] - 73;//位置自然化
+										p_P[0][3] = 0;//状态改变
+										p_P[0][4] = 40;//速度初始化
+									}
+						//得分雪花相关
+						if (i < 50)
+							if (snow_score[i][2] == 2)
+								if ((int)p_P[0][0] + 70 >= snow_score[i][0] && (int)p_P[0][0] - 51 <= snow_score[i][0])//高度判断
+									if (p_P[0][1] + 77 > snow_score[i][1] && p_P[0][1] - 3 < snow_score[i][1]) {//宽度判断
+										snow_score[i][2] = 1;
+										score[0]++;
+										if (music[1] > 0) {
+											musicclose("score");
+											musicopen("score");
+										}
+									}
+					}
+				}
+			}
+			else if (p_P[0][3] == 0) {//行走和奔跑状态的更新
+				a = 0;
+				//判断是否在砖块或者梯子上
+				for (i = 0; i < 500; i++) {
+					//砖块相关
+					if (brick[i][2] > 0)
+						if ((int)p_P[0][0] + 74 >= brick[i][0] && (int)p_P[0][0] + 72 <= brick[i][0])//高度判断
+							if (p_P[0][1] + 80 > brick[i][1] && p_P[0][1] < brick[i][1]) {//宽度判断
+								if (brick[i][2] != 4) {//未被玩家一冰冻 占比增加
+									score[1]++;
+									if (brick[i][2] == 5)//之前被玩家二冰冻 玩家二占比减少
+										score[2]--;
+								}
+								brick[i][2] = 4;//冰冻
+								a++;
+							}
+					//梯子相关
+					if (i < 100)
+						if (stair[i][2] > 0)
+							if ((int)p_P[0][0] + 74 >= stair[i][0] && (int)p_P[0][0] + 72 <= stair[i][0])//高度判断
+								if (p_P[0][1] + 80 > stair[i][1] && p_P[0][1] < stair[i][1]) {//宽度判断
+									if (stair[i][2] == 1) {//如果之前未被冰冻 占比增加
+										score[1]++;
+										if (stair[i][2] == 3)//如果之前被玩家二冰冻 玩家二占比减少
+											score[2]--;
+									}
+									stair[i][2] = 2;//冰冻
+									a++;
+								}
+					//铁块相关
+					if (i < 100)
+						if (iron[i][2] > 0)
+							if ((int)p_P[0][0] + 73 >= iron[i][0] && (int)p_P[0][0] + 73 <= iron[i][0])//高度判断
+								if (p_P[0][1] + 80 > iron[i][1] && p_P[0][1] < iron[i][1]) {//宽度判断
+									if (p_P[0][1] + 80 - v[0] <= iron[i][1])//撞到铁块
+										p_P[0][1] = (double)iron[i][1] - 80;
+									else if (p_P[0][1] - v[0] >= iron[i][1])//撞到铁块
+										p_P[0][1] = (double)iron[i][1];
+									a++;
+								}
+					//冰块相关
+					if (i < 100)
+						if (monster[i][3] > 1)//怪物冰冻中
+							if ((int)p_P[0][1] + 80 > monster[i][1] && (int)p_P[0][1] < monster[i][1])
+								if ((int)p_P[0][0] + 73 == monster[i][0] - 43)//玩家一在冰块上
+									a++;
+					//树木和灌木丛相关
+					if (i < 100)
+						if (tree_bush[i][2] > 0) {
+							//灌木丛
+							if (tree_bush[i][2] < 4) {
+								if ((int)p_P[0][0] + 34 >= tree_bush[i][0] && (int)p_P[0][0] + 32 <= tree_bush[i][0])//高度判断
+									if (p_P[0][1] + 70 > tree_bush[i][1] && p_P[0][1] - 10 < tree_bush[i][1])//宽度判断
+										tree_bush[i][2] = 2;//冰冻
+							}
+							//树木
+							if (tree_bush[i][2] > 3) {
+								if ((int)p_P[0][0] - 73 >= tree_bush[i][0] && (int)p_P[0][0] - 75 <= tree_bush[i][0])//高度判断
+									if (p_P[0][1] + 34 > tree_bush[i][1] && p_P[0][1] - 46 < tree_bush[i][1])//宽度判断
+										tree_bush[i][2] = 5;//冰冻
+							}
+						}
+					//得分雪花相关
+					if (i < 50)
+						if (snow_score[i][2] == 2)
+							if ((int)p_P[0][0] + 70 >= snow_score[i][0] && (int)p_P[0][0] - 51 <= snow_score[i][0])//高度判断
+								if (p_P[0][1] + 77 > snow_score[i][1] && p_P[0][1] - 3 < snow_score[i][1]) {//宽度判断
+									snow_score[i][2] = 1;
+									score[0]++;
+									if (music[1] > 0) {
+										musicclose("score");
+										musicopen("score");
+									}
+								}
+				}
+				if (a == 0) {//未在砖块,铁块,冰块或者梯子上
+					p_P[0][3] = 2;//状态改变 变为跳跃状态
+					p_P[0][4] = 40;//速度初始化
+				}
+			}
+		}
+		if (p_P[1][2] >= 0 && mode == 2) {//玩家二相关
+			if ((int)p_P[1][0] > m * 44 + 44)
+				p_P[1][2] = 0;
+			p_P[1][1] += v[1];
+			//速度更新
+			if (v[1] > 0)
+				v[1] = (v[1] < 0.2 ? 0 : v[1] - 0.2);
+			else if (v[1] < 0)
+				v[1] = (v[1] > -0.2 ? 0 : v[1] + 0.2);
+			//防止玩家二出边框
+			if (p_P[1][1] < -41) {
+				p_P[1][1] = -41;
+				v[1] = 0;
+			}
+			else if (p_P[1][1] > (double)n * 44 - 85) {
+				p_P[1][1] = (double)n * 44 - 85;
+				v[1] = 0;
+			}
+			//无敌时间的处理
+			if (p_P[1][2] > 3 && count % 5 == 0)
+				p_P[1][2] -= 3;
+			//玩家二相关
+			if (p_P[1][3] == 2) {
+				//计算下落
+				a = 6.3 * p_P[1][4] - 0.07875 * p_P[1][4] * p_P[1][4];
+				b = 6.3 * (p_P[1][4] - 2) - 0.07875 * (p_P[1][4] - 2) * (p_P[1][4] - 2);
+				p_P[1][0] = p_P[1][0] + a - b;
+				p_P[1][4] -= 2;
+				//ab合理化  为后面冰冻梯子做准备
+				if (a < b) {
+					c = a;
+					a = b;
+					b = c;
+				}
+				//判断是否落地
+				for (i = 0; i < 500; i++) {
+					//砖块相关
+					if (p_P[1][4] < 40)//下落过程中
+						if (brick[i][2] > 0)
+							if ((int)(p_P[1][0] + a - b) + 73 >= brick[i][0] && (int)(p_P[1][0] - a + b) + 73 <= brick[i][0])//高度判断
+								if (p_P[1][1] + 80 > brick[i][1] && p_P[1][1] < brick[i][1]) {//宽度判断
+									p_P[1][0] = (double)brick[i][0] - 73;//位置自然化
+									p_P[1][3] = 0;//状态改变
+									p_P[1][4] = 40;//速度初始化
+									if (brick[i][2] != 5) {//未被玩家二冰冻 占比增加
+										score[2]++;
+										if (brick[i][2] == 4)//之前被玩家一冰冻 玩家一占比减少
+											score[1]--;
+									}
+									brick[i][2] = 5;//冰冻
+								}
+					//梯子相关
+					if (i < 100)
+						if (p_P[1][4] < 40)//下落过程中
+							if (stair[i][2] > 0)
+								if ((int)(p_P[1][0] + a - b) + 73 >= stair[i][0] && (int)(p_P[1][0] - a + b) + 73 <= stair[i][0])//高度判断
+									if (p_P[1][1] + 80 > stair[i][1] && p_P[1][1] < stair[i][1]) {//宽度判断
+										//防止误判
+										for (j = 0; j < 100; j++)
+											//判断所处位置有没有梯子
+											if ((int)(p_P[1][0] + a - b) + 31 >= stair[j][0] && (int)(p_P[1][0] - a + b) + 31 <= stair[j][0])//高度判断
+												if (p_P[1][1] + 80 > stair[j][1] && p_P[1][1] < stair[j][1])//宽度判断
+													break;
+										if (stair[i][2] == 1) {//如果之前未被冰冻 占比增加
+											score[2]++;
+											if (stair[i][2] == 2)//如果之前被玩家一冰冻 玩家一占比减少
+												score[1]--;
+										}
+										stair[i][2] = 3;//冰冻
+										if (j != 100) {
+											if (stair[j][2] == 1) {//如果之前未被冰冻 占比增加
+												score[2]++;
+												if (stair[j][2] == 2)//如果之前被玩家一冰冻 玩家一占比减少
+													score[1]--;
+											}
+											stair[j][2] = 3;//冰冻
+										}
+										if (p_P[1][4] < 40)//下落过程中
+											if (j == 100) {
+												p_P[1][0] = (double)stair[i][0] - 73;//位置自然化
+												p_P[1][3] = 0;//状态改变
+												p_P[1][4] = 40;//速度初始化
+											}
+									}
+					//铁块相关
+					if (i < 100)
+						if (p_P[1][4] < 40)//下落过程中
+							if (iron[i][2] > 0)
+								if ((int)(p_P[1][0] + a - b) + 73 >= iron[i][0] && (int)(p_P[1][0] - a + b) + 73 <= iron[i][0])//高度判断
+									if (p_P[1][1] + 80 > iron[i][1] && p_P[1][1] < iron[i][1]) {//宽度判断
+										if (p_P[1][1] + 80 - v[0] <= iron[i][1])//撞到铁块
+											p_P[1][1] = (double)iron[i][1] - 80;
+										else if (p_P[1][1] - v[0] >= iron[i][1])//撞到铁块
+											p_P[1][1] = (double)iron[i][1];
+										else {
+											p_P[1][0] = (double)iron[i][0] - 73;//位置自然化
+											p_P[1][3] = 0;//状态改变
+											p_P[1][4] = 40;//速度初始化
+										}
+									}
+					//玩家冰冻怪物处理
+					if (i < 100)
+						if (p_P[1][4] < 40)//下落过程中
+							if (monster[i][3] == 1) {//怪物移动中
+								if ((int)p_P[1][1] + 80 > monster[i][1] && (int)p_P[1][1] < monster[i][1])
+									if ((int)(p_P[1][0] - a + b) + 73 < monster[i][0] - 15 && (int)(p_P[1][0] + a - b) + 80 > monster[i][0] - 15) {//玩家二跳到怪物头顶
+										p_P[1][4] = 80;
+										p_P[1][3] = 2;//变为跳跃状态
+										monster[i][3] = 400;//冰冻怪物
+										if (music[1] > 0) {
+											musicclose("frozen");
+											musicopen("frozen");
+										}
+									}
+							}
+							else if (monster[i][3] > 1) {//怪物冰冻中
+								if ((int)p_P[1][1] + 80 > monster[i][1] && (int)p_P[1][1] < monster[i][1])
+									if ((int)(p_P[1][0] - a + b) + 73 < monster[i][0] - 43 && (int)(p_P[1][0] + a - b) + 75 > monster[i][0] - 43) {//玩家一跳到冰块上
+										p_P[1][0] = (double)monster[i][0] - 43 - 73;//位置自然化
+										p_P[1][3] = 0;//状态改变
+										p_P[1][4] = 40;//速度初始化
+									}
+							}
+					//得分雪花相关
+					if (i < 50)
+						if (snow_score[i][2] == 2)
+							if ((int)(p_P[1][0] + a - b) + 69 >= snow_score[i][0] && (int)(p_P[1][0] - a + b) - 50 <= snow_score[i][0])//高度判断
+								if (p_P[1][1] + 77 > snow_score[i][1] && p_P[1][1] - 3 < snow_score[i][1]) {//宽度判断
+									snow_score[i][2] = 1;
+									score[0]++;
+									if (music[1] > 0) {
+										musicclose("score");
+										musicopen("score");
+									}
+								}
+				}
+			}
+			else if (p_P[1][3] == 1) {
+				//判断是否落地
+				if (p_P[1][1] + 80 <= p_stair[1] || p_P[1][1] >= p_stair[1]) {//宽度判断  是否和梯子在同一宽度位置
+					p_P[1][3] = 2;//状态改变
+					p_P[1][4] = 40;//速度初始化
+				}
+				else {//是的话
+					for (i = 0; i < 500; i++) {
+						//砖块相关
+						if (brick[i][2] > 0)
+							if ((int)p_P[1][0] + 74 >= brick[i][0] && (int)p_P[1][0] + 72 <= brick[i][0])//高度判断
+								if (p_P[1][1] + 80 > brick[i][1] && p_P[1][1] < brick[i][1]) {//宽度判断
+									p_P[1][0] = (double)brick[i][0] - 73;//位置自然化
+									p_P[1][3] = 0;//状态改变
+									p_P[1][4] = 40;//速度初始化
+									if (brick[i][2] != 5) {//未被玩家二冰冻 占比增加
+										score[2]++;
+										if (brick[i][2] == 4)//之前被玩家一冰冻 玩家一占比减少
+											score[1]--;
+									}
+									brick[i][2] = 5;//冰冻
+								}
+						//梯子相关
+						if (i < 100)
+							if (stair[i][2] > 0) {
+								if ((int)p_P[1][0] + 74 >= stair[i][0] && (int)p_P[1][0] + 72 <= stair[i][0])//高度判断
+									if (p_P[1][1] + 80 > stair[i][1] && p_P[1][1] < stair[i][1]) {//宽度判断
+										//防止误判
+										for (j = 0; j < 100; j++)
+											//判断所处位置有没有梯子
+											if ((int)p_P[1][0] + 32 >= stair[j][0] && (int)p_P[1][0] + 30 <= stair[j][0])//高度判断
+												if (p_P[1][1] + 80 > stair[j][1] && p_P[1][1] < stair[j][1])//宽度判断
+													break;
+										if (stair[i][2] == 1) {//如果之前未被冰冻 占比增加
+											score[2]++;
+											if (stair[i][2] == 2)//如果之前被玩家一冰冻 玩家一占比减少
+												score[1]--;
+										}
+										stair[i][2] = 3;//冰冻
+										if (j != 100) {
+											if (stair[j][2] == 1) {//如果之前未被冰冻 占比增加
+												score[2]++;
+												if (stair[j][2] == 2)//如果之前被玩家一冰冻 玩家一占比减少
+													score[1]--;
+											}
+											stair[j][2] = 3;//冰冻
+										}
+										if (j == 100) {
+											p_P[1][0] = (double)stair[i][0] - 73;//位置自然化
+											p_P[1][3] = 0;//状态改变
+											p_P[1][4] = 40;//速度初始化
+										}
+									}
+							}
+						//铁块相关
+						if (i < 100)
+							if (iron[i][2] > 0)
+								if ((int)p_P[1][0] + 73 >= iron[i][0] && (int)p_P[1][0] + 73 <= iron[i][0])//高度判断
+									if (p_P[1][1] + 80 > iron[i][1] && p_P[1][1] < iron[i][1]) {//宽度判断
+										p_P[1][0] = (double)iron[i][0] - 73;//位置自然化
+										p_P[1][3] = 0;//状态改变
+										p_P[1][4] = 40;//速度初始化
+									}
+						//得分雪花相关
+						if (i < 50)
+							if (snow_score[i][2] == 2)
+								if ((int)p_P[1][0] + 70 >= snow_score[i][0] && (int)p_P[1][0] - 51 <= snow_score[i][0])//高度判断
+									if (p_P[1][1] + 77 > snow_score[i][1] && p_P[1][1] - 3 < snow_score[i][1]) {//宽度判断
+										snow_score[i][2] = 1;
+										score[0]++;
+										if (music[1] > 0) {
+											musicclose("score");
+											musicopen("score");
+										}
+									}
+					}
+				}
+			}
+			else if (p_P[1][3] == 0) {//行走和奔跑状态的更新
+				a = 0;
+				//判断是否在砖块或者梯子上
+				for (i = 0; i < 500; i++) {
+					//砖块相关
+					if (brick[i][2] > 0)
+						if ((int)p_P[1][0] + 74 >= brick[i][0] && (int)p_P[1][0] + 72 <= brick[i][0])//高度判断
+							if (p_P[1][1] + 80 > brick[i][1] && p_P[1][1] < brick[i][1]) {//宽度判断
+								if (brick[i][2] != 5) {//未被玩家二冰冻 占比增加
+									score[2]++;
+									if (brick[i][2] == 4)//之前被玩家一冰冻 玩家一占比减少
+										score[1]--;
+								}
+								brick[i][2] = 5;//冰冻
+								a++;
+							}
+					//梯子相关
+					if (i < 100)
+						if (stair[i][2] > 0)
+							if ((int)p_P[1][0] + 74 >= stair[i][0] && (int)p_P[1][0] + 72 <= stair[i][0])//高度判断
+								if (p_P[1][1] + 80 > stair[i][1] && p_P[1][1] < stair[i][1]) {//宽度判断
+									if (stair[i][2] == 1) {//如果之前未被冰冻 占比增加
+										score[2]++;
+										if (stair[i][2] == 2)//如果之前被玩家一冰冻 玩家一占比减少
+											score[1]--;
+									}
+									stair[i][2] = 3;//冰冻
+									a++;
+								}
+					//铁块相关
+					if (i < 100)
+						if (iron[i][2] > 0)
+							if ((int)p_P[1][0] + 73 >= iron[i][0] && (int)p_P[1][0] + 73 <= iron[i][0])//高度判断
+								if (p_P[1][1] + 80 > iron[i][1] && p_P[1][1] < iron[i][1]) {//宽度判断
+									if (p_P[1][1] + 80 - v[0] <= iron[i][1])//撞到铁块
+										p_P[1][1] = (double)iron[i][1] - 80;
+									else if (p_P[1][1] - v[0] >= iron[i][1])//撞到铁块
+										p_P[1][1] = (double)iron[i][1];
+									a++;
+								}
+					//冰块相关
+					if (i < 100)
+						if (monster[i][3] > 1)//怪物冰冻中
+							if ((int)p_P[1][1] + 80 > monster[i][1] && (int)p_P[1][1] < monster[i][1])
+								if ((int)p_P[1][0] + 73 == monster[i][0] - 43)//玩家一在冰块上
+									a++;
+					//树木和灌木丛相关
+					if (i < 100)
+						if (tree_bush[i][2] > 0) {
+							//灌木丛
+							if (tree_bush[i][2] < 4) {
+								if ((int)p_P[1][0] + 34 >= tree_bush[i][0] && (int)p_P[1][0] + 32 <= tree_bush[i][0])//高度判断
+									if (p_P[1][1] + 70 > tree_bush[i][1] && p_P[1][1] - 10 < tree_bush[i][1])//宽度判断
+										tree_bush[i][2] = 3;//冰冻
+							}
+							//树木
+							if (tree_bush[i][2] > 3) {
+								if ((int)p_P[1][0] - 73 >= tree_bush[i][0] && (int)p_P[1][0] - 75 <= tree_bush[i][0])//高度判断
+									if (p_P[1][1] + 34 > tree_bush[i][1] && p_P[1][1] - 46 < tree_bush[i][1])//宽度判断
+										tree_bush[i][2] = 6;//冰冻
+							}
+						}
+					//得分雪花相关
+					if (i < 50)
+						if (snow_score[i][2] == 2)
+							if ((int)p_P[1][0] + 70 >= snow_score[i][0] && (int)p_P[1][0] - 51 <= snow_score[i][0])//高度判断
+								if (p_P[1][1] + 77 > snow_score[i][1] && p_P[1][1] - 3 < snow_score[i][1]) {//宽度判断
+									snow_score[i][2] = 1;
+									score[0]++;
+									if (music[1] > 0) {
+										musicclose("score");
+										musicopen("score");
+									}
+								}
+				}
+				if (a == 0) {//未在砖块,铁块,冰块或者梯子上
+					p_P[1][3] = 2;//状态改变 变为跳跃状态
+					p_P[1][4] = 40;//速度初始化
+				}
+			}
+		}
+	}
+}
+
+void updateuser()
+{
+	int i;
+	if (_kbhit()) {
+		//玩家一操作
+		if (p_P[0][2] >= 0) {
+			if (GetAsyncKeyState(0x57) & 0x8000) {//w
+				if (p_P[0][3] == 0) {//静止或跑动状态
+					for (i = 0; i < 100; i++) {
+						if (stair[i][2] == 0) {//检索完毕  退出
+							p_P[0][4] = 80;
+							p_P[0][3] = 2;//变为跳跃状态
+							if (music[1] > 0) {
+								musicclose("jump");
+								musicopen("jump");
+							}
+							break;
+						}
+						else {
+							if ((int)p_P[0][1] + 80 > stair[i][1] && (int)p_P[0][1] < stair[i][1] && (int)p_P[0][0] + 31 == stair[i][0]) {//如果符合上梯子的位置条件
+								p_P[0][3] = 1;//变为上梯子状态
+								p_stair[0] = stair[i][1];//保存所在梯子位置信息
+								break;
+							}
+						}
+					}
+				}
+				else if (p_P[0][3] == 1)//在梯子上
+					p_P[0][0]--;
+			}
+			if (GetAsyncKeyState(0x53) & 0x8000) {//s
+				if (p_P[0][3] == 0) {//静止或跑动状态
+					for (i = 0; i < 100; i++) {
+						if (stair[i][2] == 0)
+							break;
+						else {
+							if ((int)p_P[0][1] + 80 > stair[i][1] && (int)p_P[0][1] < stair[i][1] && (int)p_P[0][0] + 73 == stair[i][0]) {//如果符合下梯子的位置条件
+								p_P[0][3] = 1;//变为上梯子状态
+								p_stair[0] = stair[i][1];//保存所在梯子位置信息
+								break;
+							}
+						}
+					}
+				}
+				else if (p_P[0][3] == 1)//如果在梯子上  下梯子
+					p_P[0][0]++;
+			}
+			if (GetAsyncKeyState(0x41) & 0x8000)//a
+				v[0] = (v[0] < 0 ? (v[0] > -10 ? v[0] - 0.2 : -10) : v[0] - 0.1);
+			if (GetAsyncKeyState(0x44) & 0x8000)//d
+				v[0] = (v[0] > 0 ? (v[0] < 10 ? v[0] + 0.2 : 10) : v[0] + 0.1);
+		}
+		//玩家二操作
+		if (p_P[1][2] >= 0 && mode == 2) {
+			if (GetAsyncKeyState(VK_UP) & 0x8000) {//上
+				if (p_P[1][3] == 0) {//静止或跑动状态
+					for (i = 0; i < 100; i++) {
+						if (stair[i][2] == 0) {//检索完毕  退出
+							p_P[1][4] = 80;
+							p_P[1][3] = 2;//变为跳跃状态
+							if (music[1] > 0) {
+								musicclose("jump");
+								musicopen("jump");
+							}
+							break;
+						}
+						else {
+							if ((int)p_P[1][1] + 86 > stair[i][1] && (int)p_P[1][1] < stair[i][1] && (int)p_P[1][0] + 31 == stair[i][0]) {//如果符合上梯子的位置条件
+								p_P[1][3] = 1;//变为上梯子状态
+								p_stair[1] = stair[i][1];//保存所在梯子位置信息
+								break;
+							}
+						}
+					}
+				}
+				else if (p_P[1][3] == 1)//在梯子上
+					p_P[1][0]--;
+			}
+			if (GetAsyncKeyState(VK_DOWN) & 0x8000) {//下
+				if (p_P[1][3] == 0) {//静止或跑动状态
+					for (i = 0; i < 100; i++) {
+						if (stair[i][2] == 0)
+							break;
+						else {
+							if ((int)p_P[1][1] + 80 > stair[i][1] && (int)p_P[1][1] < stair[i][1] && (int)p_P[1][0] + 73 == stair[i][0]) {//如果符合下梯子的位置条件
+								p_P[1][3] = 1;//变为上梯子状态
+								p_stair[0] = stair[i][1];//保存所在梯子位置信息
+								break;
+							}
+						}
+					}
+				}
+				else if (p_P[1][3] == 1)//如果在梯子上  下梯子
+					p_P[1][0]++;
+			}
+			if (GetAsyncKeyState(VK_LEFT) & 0x8000)//左
+				v[1] = (v[1] < 0 ? (v[1] > -10 ? v[1] - 0.2 : -10) : v[1] - 0.1);
+			if (GetAsyncKeyState(VK_RIGHT) & 0x8000)//右
+				v[1] = (v[1] > 0 ? (v[1] < 10 ? v[1] + 0.2 : 10) : v[1] + 0.1);
+		}
+	}
+}
